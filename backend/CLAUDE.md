@@ -19,7 +19,7 @@ cargo check        # type-check without building
 
 ## Database
 
-PostgreSQL. Connection string via `DATABASE_URL` in `.env`. Single `check_results` table — see `migrations/` for schema.
+PostgreSQL. Connection string via `DATABASE_URL`. Layered env: `.env` (git-tracked defaults) then `.env.local` (gitignored overrides). Single `check_results` table — see `migrations/` for schema.
 
 ## Crate Conventions
 

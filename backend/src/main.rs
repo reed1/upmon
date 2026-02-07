@@ -16,7 +16,8 @@ async fn main() {
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
-    dotenvy::dotenv().ok();
+    dotenvy::from_filename(".env.local").ok();
+    dotenvy::from_filename(".env").ok();
     let database_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env or environment");
 
