@@ -1,4 +1,6 @@
 use chrono::{DateTime, Utc};
+use serde::Serialize;
+use sqlx::FromRow;
 
 pub enum ErrorType {
     Timeout,
@@ -29,6 +31,19 @@ pub struct CheckResult {
 }
 
 const MAX_ERROR_CHARS: usize = 500;
+
+#[derive(Serialize, FromRow)]
+pub struct MonitorStatus {
+    pub project_id: String,
+    pub site_key: String,
+    pub url: String,
+    pub status_code: Option<i16>,
+    pub response_ms: i32,
+    pub is_up: bool,
+    pub error_type: Option<String>,
+    pub error_message: Option<String>,
+    pub checked_at: DateTime<Utc>,
+}
 
 pub fn truncate_error_message(body: &str) -> String {
     let char_count = body.chars().count();

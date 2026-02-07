@@ -1,8 +1,10 @@
 mod config;
 mod db;
+mod env;
 mod models;
 mod monitor;
 mod scheduler;
+mod server;
 
 use std::path::Path;
 use std::time::Duration;
@@ -16,10 +18,7 @@ async fn main() {
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
 
-    dotenvy::from_filename(".env.local").ok();
-    dotenvy::from_filename(".env").ok();
-    let database_url =
-        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env or environment");
+    let env = env::Env::load();
 
     let config = config::Config::load(Path::new("config.json"));
     info!(retention_days = config.retention_days, "config loaded");
@@ -27,13 +26,14 @@ async fn main() {
     let monitors = config.resolve();
     info!(count = monitors.len(), "monitors resolved");
 
-    let pool = db::init_pool(&database_url).await;
+    let pool = db::init_pool(&env.database_url).await;
     db::run_migrations(&pool).await;
     info!("database ready");
 
     let client = monitor::build_client(Duration::from_secs(30));
 
-    scheduler::spawn_monitors(monitors, pool, client);
+    scheduler::spawn_monitors(monitors, pool.clone(), client);
+    tokio::spawn(server::serve(pool, env.api_key, env.api_port));
 
     info!("upmon running — press ctrl+c to stop");
     tokio::signal::ctrl_c()
