@@ -28,9 +28,9 @@
         mode: "0755"
       notify: restart upmon
 
-    - name: Template config.json
-      ansible.builtin.template:
-        src: config.json.j2
+    - name: Build config.json
+      ansible.builtin.copy:
+        content: "{{ upmon_config | combine({'projects': lookup('file', '/home/reed/.cache/rlocal/rofi-vscode/monitor.generated.json') | from_json}) | to_nice_json }}\n"
         dest: ~/app/upmon/backend-bin/config.json
         mode: "0644"
       notify: restart upmon

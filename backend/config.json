@@ -15,20 +15,6 @@
           "url": "https://abubot.r-mulyadi.com/health"
         }
       ]
-    },
-    {
-      "id": "elogbook-tht",
-      "monitors": [
-        {
-          "site_key": "dev",
-          "url": "https://dev.thtbkl-fkui.id/health"
-        },
-        {
-          "site_key": "prod",
-          "url": "https://thtbkl-fkui.id/health",
-          "interval_sec": 120
-        }
-      ]
     }
   ]
 }

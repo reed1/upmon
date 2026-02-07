@@ -7,8 +7,3 @@ upmon_config:
     expected_status_code: 200
     http_method: GET
   retention_days: 90
-  projects:
-    - id: example
-      monitors:
-        - site_key: prod
-          url: "https://example.com/health"
