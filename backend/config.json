@@ -1,0 +1,34 @@
+{
+  "defaults": {
+    "interval_sec": 120,
+    "timeout_sec": 10,
+    "expected_status_code": 200,
+    "http_method": "GET"
+  },
+  "retention_days": 90,
+  "projects": [
+    {
+      "id": "abubot",
+      "monitors": [
+        {
+          "site_key": "prod",
+          "url": "https://abubot.r-mulyadi.com/health"
+        }
+      ]
+    },
+    {
+      "id": "elogbook-tht",
+      "monitors": [
+        {
+          "site_key": "dev",
+          "url": "https://dev.thtbkl-fkui.id/health"
+        },
+        {
+          "site_key": "prod",
+          "url": "https://thtbkl-fkui.id/health",
+          "interval_sec": 120
+        }
+      ]
+    }
+  ]
+}
