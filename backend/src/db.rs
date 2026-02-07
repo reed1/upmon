@@ -20,8 +20,8 @@ pub async fn run_migrations(pool: &PgPool) {
 
 pub async fn insert_check_result(pool: &PgPool, result: &CheckResult) -> Result<(), sqlx::Error> {
     sqlx::query(
-        "INSERT INTO check_results (project_id, site_key, url, status_code, response_ms, is_up, error, checked_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        "INSERT INTO monitor_checks (project_id, site_key, url, status_code, response_ms, is_up, error_type, error_message, checked_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(&result.project_id)
     .bind(&result.site_key)
@@ -29,7 +29,8 @@ pub async fn insert_check_result(pool: &PgPool, result: &CheckResult) -> Result<
     .bind(result.status_code)
     .bind(result.response_ms)
     .bind(result.is_up)
-    .bind(&result.error)
+    .bind(result.error_type.as_ref().map(|e| e.as_str()))
+    .bind(&result.error_message)
     .bind(result.checked_at)
     .execute(pool)
     .await?;

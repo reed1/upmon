@@ -4,7 +4,7 @@ use std::time::Duration;
 use tracing::warn;
 
 use crate::config::ResolvedMonitor;
-use crate::models::CheckResult;
+use crate::models::{CheckResult, ErrorType, truncate_error_message};
 
 pub async fn execute_check(client: &Client, monitor: &ResolvedMonitor) -> CheckResult {
     let method = monitor.http_method.parse::<Method>().unwrap_or_else(|_| {
@@ -25,7 +25,11 @@ pub async fn execute_check(client: &Client, monitor: &ResolvedMonitor) -> CheckR
         Ok(response) => {
             let status = response.status().as_u16();
             let is_up = status == monitor.expected_status_code;
-            if !is_up {
+
+            let (error_type, error_message) = if is_up {
+                (None, None)
+            } else {
+                let body = response.text().await.unwrap_or_default();
                 warn!(
                     project = monitor.project_id,
                     site = monitor.site_key,
@@ -33,7 +37,9 @@ pub async fn execute_check(client: &Client, monitor: &ResolvedMonitor) -> CheckR
                     actual = status,
                     "unexpected status code"
                 );
-            }
+                (Some(ErrorType::UnexpectedStatus), Some(truncate_error_message(&body)))
+            };
+
             CheckResult {
                 project_id: monitor.project_id.clone(),
                 site_key: monitor.site_key.clone(),
@@ -41,14 +47,21 @@ pub async fn execute_check(client: &Client, monitor: &ResolvedMonitor) -> CheckR
                 status_code: Some(status as i16),
                 response_ms,
                 is_up,
-                error: None,
+                error_type,
+                error_message,
                 checked_at,
             }
         }
         Err(e) => {
+            let error_type = if e.is_timeout() {
+                ErrorType::Timeout
+            } else {
+                ErrorType::ConnectionError
+            };
             warn!(
                 project = monitor.project_id,
                 site = monitor.site_key,
+                error_type = error_type.as_str(),
                 error = %e,
                 "check failed"
             );
@@ -59,7 +72,8 @@ pub async fn execute_check(client: &Client, monitor: &ResolvedMonitor) -> CheckR
                 status_code: None,
                 response_ms,
                 is_up: false,
-                error: Some(e.to_string()),
+                error_type: Some(error_type),
+                error_message: Some(e.to_string()),
                 checked_at,
             }
         }
