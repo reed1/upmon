@@ -6,11 +6,15 @@ mod monitor;
 mod scheduler;
 mod server;
 
+use std::collections::HashMap;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use tracing::info;
 use tracing_subscriber::EnvFilter;
+
+use crate::models::StatusCache;
 
 #[tokio::main]
 async fn main() {
@@ -32,8 +36,10 @@ async fn main() {
 
     let client = monitor::build_client(Duration::from_secs(30));
 
-    scheduler::spawn_monitors(monitors, pool.clone(), client);
-    tokio::spawn(server::serve(pool, env.api_key, env.api_port));
+    let cache: StatusCache = Arc::new(RwLock::new(HashMap::new()));
+
+    scheduler::spawn_monitors(monitors, pool, client, cache.clone());
+    tokio::spawn(server::serve(cache, env.api_key, env.api_port));
 
     info!("upmon running — press ctrl+c to stop");
     tokio::signal::ctrl_c()
