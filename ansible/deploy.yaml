@@ -1,0 +1,82 @@
+- name: Deploy Upmon
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Build binary locally
+      delegate_to: localhost
+      ansible.builtin.command:
+        cmd: cargo build --release
+        chdir: "{{ playbook_dir }}/../backend"
+
+    - name: Clone/update repo
+      ansible.builtin.git:
+        repo: git@github.com:reed1/upmon.git
+        dest: ~/app/upmon
+        version: main
+
+    - name: Create backend-bin directory
+      ansible.builtin.file:
+        path: ~/app/upmon/backend-bin
+        state: directory
+        mode: "0755"
+
+    - name: Copy binary
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../backend/target/release/upmon"
+        dest: ~/app/upmon/backend-bin/upmon
+        mode: "0755"
+      notify: restart upmon
+
+    - name: Template config.json
+      ansible.builtin.template:
+        src: config.json.j2
+        dest: ~/app/upmon/backend-bin/config.json
+        mode: "0644"
+      notify: restart upmon
+
+    - name: Template .env.local
+      ansible.builtin.template:
+        src: env.local.j2
+        dest: ~/app/upmon/backend-bin/.env.local
+        mode: "0600"
+      notify: restart upmon
+
+    - name: Enable linger
+      ansible.builtin.command:
+        cmd: loginctl enable-linger {{ ansible_user_id }}
+      changed_when: false
+
+    - name: Ensure systemd user directory
+      ansible.builtin.file:
+        path: ~/.config/systemd/user
+        state: directory
+        mode: "0755"
+
+    - name: Template systemd service
+      ansible.builtin.template:
+        src: upmon.service.j2
+        dest: ~/.config/systemd/user/upmon.service
+        mode: "0644"
+      notify:
+        - reload systemd
+        - restart upmon
+
+    - name: Enable and start service
+      ansible.builtin.systemd:
+        name: upmon
+        enabled: true
+        state: started
+        scope: user
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+
+    - name: restart upmon
+      ansible.builtin.systemd:
+        name: upmon
+        state: restarted
+        scope: user

@@ -1,0 +1,14 @@
+upmon_database_url: "postgres://user:password@localhost:5432/upmon"
+
+upmon_config:
+  defaults:
+    interval_sec: 120
+    timeout_sec: 10
+    expected_status_code: 200
+    http_method: GET
+  retention_days: 90
+  projects:
+    - id: example
+      monitors:
+        - site_key: prod
+          url: "https://example.com/health"
