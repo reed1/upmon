@@ -22,14 +22,23 @@ pub async fn execute_check(client: &Client, monitor: &ResolvedMonitor) -> CheckR
     let checked_at = Utc::now();
 
     match result {
-        Ok(response) => {
+        Ok(mut response) => {
             let status = response.status().as_u16();
             let is_up = status == monitor.expected_status_code;
 
             let (error_type, error_message) = if is_up {
                 (None, None)
             } else {
-                let body = response.text().await.unwrap_or_default();
+                const MAX_BODY_BYTES: usize = 2048;
+                let mut buf = Vec::with_capacity(MAX_BODY_BYTES);
+                while let Ok(Some(chunk)) = response.chunk().await {
+                    let remaining = MAX_BODY_BYTES - buf.len();
+                    buf.extend_from_slice(&chunk[..chunk.len().min(remaining)]);
+                    if buf.len() >= MAX_BODY_BYTES {
+                        break;
+                    }
+                }
+                let body = String::from_utf8_lossy(&buf);
                 warn!(
                     project = monitor.project_id,
                     site = monitor.site_key,
