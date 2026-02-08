@@ -1,7 +1,8 @@
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::routing::get;
 use axum::{Json, Router};
+use serde::Deserialize;
 use tokio::net::TcpListener;
 use tracing::info;
 
@@ -28,9 +29,15 @@ pub async fn serve(cache: StatusCache, api_key: String, port: u16) {
         .expect("HTTP server error");
 }
 
+#[derive(Deserialize)]
+struct StatusQuery {
+    project_id: Option<String>,
+}
+
 async fn status_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(query): Query<StatusQuery>,
 ) -> Result<Json<Vec<CheckResult>>, StatusCode> {
     let key = headers
         .get("x-api-key")
@@ -42,7 +49,14 @@ async fn status_handler(
     }
 
     let cache = state.cache.read().unwrap();
-    let mut results: Vec<CheckResult> = cache.values().cloned().collect();
+    let mut results: Vec<CheckResult> = cache
+        .values()
+        .filter(|r| match &query.project_id {
+            Some(id) => r.project_id == *id,
+            None => true,
+        })
+        .cloned()
+        .collect();
     results.sort_by(|a, b| (&a.project_id, &a.site_key).cmp(&(&b.project_id, &b.site_key)));
 
     Ok(Json(results))
