@@ -1,5 +1,3 @@
-upmon_database_url: "postgres://user:password@localhost:5432/upmon"
-
 upmon_config:
   defaults:
     interval_sec: 120

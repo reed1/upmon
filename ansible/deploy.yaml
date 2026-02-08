@@ -30,7 +30,7 @@
 
     - name: Build config.json
       ansible.builtin.copy:
-        content: "{{ upmon_config | combine({'projects': lookup('file', '/home/reed/.cache/rlocal/rofi-vscode/monitor.generated.json') | from_json}) | to_nice_json }}\n"
+        content: "{{ upmon_config | combine(lookup('file', '/home/reed/.cache/rlocal/rofi-vscode/monitor.generated.json') | from_json) | to_nice_json }}\n"
         dest: ~/app/upmon/backend-bin/config.json
         mode: "0644"
       notify: restart upmon
@@ -44,7 +44,7 @@
 
     - name: Enable linger
       ansible.builtin.command:
-        cmd: loginctl enable-linger {{ ansible_user_id }}
+        cmd: loginctl enable-linger {{ ansible_user }}
       changed_when: false
 
     - name: Ensure systemd user directory
