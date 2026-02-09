@@ -1,5 +1,6 @@
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+
 CREATE TABLE monitor_checks (
-    id          BIGSERIAL    PRIMARY KEY,
     project_id  TEXT         NOT NULL,
     site_key    TEXT         NOT NULL,
     url         TEXT         NOT NULL,
@@ -11,8 +12,7 @@ CREATE TABLE monitor_checks (
     checked_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+SELECT create_hypertable('monitor_checks', 'checked_at');
+
 CREATE INDEX idx_monitor_checks_monitor_time
     ON monitor_checks (project_id, site_key, checked_at DESC);
-
-CREATE INDEX idx_monitor_checks_checked_at
-    ON monitor_checks (checked_at);
