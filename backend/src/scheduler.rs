@@ -8,7 +8,7 @@ use tracing::{info, error};
 
 use crate::config::ResolvedMonitor;
 use crate::db;
-use crate::models::StatusCache;
+use crate::models::{CacheEntry, StatusCache};
 use crate::monitor;
 
 pub fn spawn_monitors(monitors: Vec<ResolvedMonitor>, pool: PgPool, client: Client, cache: StatusCache) {
@@ -65,6 +65,13 @@ async fn run_monitor_loop(
 
         let result = monitor::execute_check(&client, &monitor).await;
 
+        let key = (result.project_id.clone(), result.site_key.clone());
+        let last_up_at = if result.is_up {
+            Some(result.checked_at)
+        } else {
+            cache.read().unwrap().get(&key).and_then(|e| e.last_up_at)
+        };
+
         info!(
             project = result.project_id,
             site = result.site_key,
@@ -74,10 +81,8 @@ async fn run_monitor_loop(
             "check complete"
         );
 
-        cache.write().unwrap().insert(
-            (result.project_id.clone(), result.site_key.clone()),
-            result.clone(),
-        );
+        let entry = CacheEntry { result: result.clone(), last_up_at };
+        cache.write().unwrap().insert(key, entry);
 
         if let Err(e) = db::insert_check_result(&pool, &result).await {
             error!(

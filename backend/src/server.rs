@@ -6,7 +6,7 @@ use serde::Deserialize;
 use tokio::net::TcpListener;
 use tracing::info;
 
-use crate::models::{CheckResult, StatusCache};
+use crate::models::{CacheEntry, StatusCache};
 
 #[derive(Clone)]
 struct AppState {
@@ -38,7 +38,7 @@ async fn status_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<StatusQuery>,
-) -> Result<Json<Vec<CheckResult>>, StatusCode> {
+) -> Result<Json<Vec<CacheEntry>>, StatusCode> {
     let key = headers
         .get("x-api-key")
         .and_then(|v| v.to_str().ok())
@@ -49,15 +49,18 @@ async fn status_handler(
     }
 
     let cache = state.cache.read().unwrap();
-    let mut results: Vec<CheckResult> = cache
+    let mut results: Vec<CacheEntry> = cache
         .values()
-        .filter(|r| match &query.project_id {
-            Some(id) => r.project_id == *id,
+        .filter(|e| match &query.project_id {
+            Some(id) => e.result.project_id == *id,
             None => true,
         })
         .cloned()
         .collect();
-    results.sort_by(|a, b| (&a.project_id, &a.site_key).cmp(&(&b.project_id, &b.site_key)));
+    results.sort_by(|a, b| {
+        (&a.result.project_id, &a.result.site_key)
+            .cmp(&(&b.result.project_id, &b.result.site_key))
+    });
 
     Ok(Json(results))
 }

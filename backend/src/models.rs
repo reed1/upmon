@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorType {
     Timeout,
@@ -22,7 +22,7 @@ impl ErrorType {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CheckResult {
     pub project_id: String,
     pub site_key: String,
@@ -35,7 +35,14 @@ pub struct CheckResult {
     pub checked_at: DateTime<Utc>,
 }
 
-pub type StatusCache = Arc<RwLock<HashMap<(String, String), CheckResult>>>;
+#[derive(Clone, Serialize, Deserialize)]
+pub struct CacheEntry {
+    #[serde(flatten)]
+    pub result: CheckResult,
+    pub last_up_at: Option<DateTime<Utc>>,
+}
+
+pub type StatusCache = Arc<RwLock<HashMap<(String, String), CacheEntry>>>;
 
 const MAX_ERROR_CHARS: usize = 500;
 
