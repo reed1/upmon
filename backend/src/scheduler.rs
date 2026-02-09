@@ -8,10 +8,9 @@ use tracing::{info, error};
 
 use crate::config::ResolvedMonitor;
 use crate::db;
-use crate::models::{CacheEntry, StatusCache};
 use crate::monitor;
 
-pub fn spawn_monitors(monitors: Vec<ResolvedMonitor>, pool: PgPool, client: Client, cache: StatusCache) {
+pub fn spawn_monitors(monitors: Vec<ResolvedMonitor>, pool: PgPool, client: Client) {
     let count = monitors.len();
     let min_interval = monitors
         .iter()
@@ -27,9 +26,8 @@ pub fn spawn_monitors(monitors: Vec<ResolvedMonitor>, pool: PgPool, client: Clie
     for (i, m) in monitors.into_iter().enumerate() {
         let pool = pool.clone();
         let client = client.clone();
-        let cache = cache.clone();
         let initial_delay = stagger_step * i as u32;
-        tokio::spawn(run_monitor_loop(Arc::new(m), pool, client, cache, initial_delay));
+        tokio::spawn(run_monitor_loop(Arc::new(m), pool, client, initial_delay));
     }
 }
 
@@ -37,7 +35,6 @@ async fn run_monitor_loop(
     monitor: Arc<ResolvedMonitor>,
     pool: PgPool,
     client: Client,
-    cache: StatusCache,
     initial_delay: Duration,
 ) {
     if !initial_delay.is_zero() {
@@ -65,13 +62,6 @@ async fn run_monitor_loop(
 
         let result = monitor::execute_check(&client, &monitor).await;
 
-        let key = (result.project_id.clone(), result.site_key.clone());
-        let last_up_at = if result.is_up {
-            Some(result.checked_at)
-        } else {
-            cache.read().unwrap().get(&key).and_then(|e| e.last_up_at)
-        };
-
         info!(
             project = result.project_id,
             site = result.site_key,
@@ -81,15 +71,21 @@ async fn run_monitor_loop(
             "check complete"
         );
 
-        let entry = CacheEntry { result: result.clone(), last_up_at };
-        cache.write().unwrap().insert(key, entry);
-
         if let Err(e) = db::insert_check_result(&pool, &result).await {
             error!(
                 project = result.project_id,
                 site = result.site_key,
                 error = %e,
                 "failed to insert check result"
+            );
+        }
+
+        if let Err(e) = db::upsert_monitor_status(&pool, &result).await {
+            error!(
+                project = result.project_id,
+                site = result.site_key,
+                error = %e,
+                "failed to upsert monitor status"
             );
         }
     }

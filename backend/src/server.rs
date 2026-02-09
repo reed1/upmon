@@ -3,19 +3,21 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
+use sqlx::PgPool;
 use tokio::net::TcpListener;
 use tracing::info;
 
-use crate::models::{CacheEntry, StatusCache};
+use crate::db;
+use crate::models::MonitorStatus;
 
 #[derive(Clone)]
 struct AppState {
-    cache: StatusCache,
+    pool: PgPool,
     api_key: String,
 }
 
-pub async fn serve(cache: StatusCache, api_key: String, port: u16) {
-    let state = AppState { cache, api_key };
+pub async fn serve(pool: PgPool, api_key: String, port: u16) {
+    let state = AppState { pool, api_key };
     let app = Router::new()
         .route("/status", get(status_handler))
         .with_state(state);
@@ -38,7 +40,7 @@ async fn status_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<StatusQuery>,
-) -> Result<Json<Vec<CacheEntry>>, StatusCode> {
+) -> Result<Json<Vec<MonitorStatus>>, StatusCode> {
     let key = headers
         .get("x-api-key")
         .and_then(|v| v.to_str().ok())
@@ -48,19 +50,9 @@ async fn status_handler(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    let cache = state.cache.read().unwrap();
-    let mut results: Vec<CacheEntry> = cache
-        .values()
-        .filter(|e| match &query.project_id {
-            Some(id) => e.result.project_id == *id,
-            None => true,
-        })
-        .cloned()
-        .collect();
-    results.sort_by(|a, b| {
-        (&a.result.project_id, &a.result.site_key)
-            .cmp(&(&b.result.project_id, &b.result.site_key))
-    });
+    let statuses = db::get_monitor_statuses(&state.pool, query.project_id.as_deref())
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(results))
+    Ok(Json(statuses))
 }
