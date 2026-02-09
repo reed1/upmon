@@ -1,6 +1,6 @@
 # Upmon Backend
 
-Rust backend for site uptime monitoring. Reads `config.json` for monitor definitions, checks health endpoints on intervals, stores results in PostgreSQL.
+Rust backend for site uptime monitoring. Reads `config.json` for monitor definitions, checks health endpoints on intervals, stores results in TimescaleDB.
 
 ## Build & Run
 
@@ -19,7 +19,7 @@ cargo check        # type-check without building
 
 ## Database
 
-PostgreSQL. Connection string via `DATABASE_URL`. Layered env: `.env` (git-tracked defaults) then `.env.local` (gitignored overrides). Single `check_results` table — see `migrations/` for schema.
+TimescaleDB (PostgreSQL extension). Connection string via `DATABASE_URL`. Layered env: `.env` (git-tracked defaults) then `.env.local` (gitignored overrides). Single `monitor_checks` hypertable partitioned by `checked_at` — see `migrations/` for schema.
 
 ## Crate Conventions
 
