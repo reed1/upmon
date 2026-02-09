@@ -1,6 +1,6 @@
-# Upmon Backend
+# Upmon Collector
 
-Rust backend for site uptime monitoring. Reads `config.json` for monitor definitions, checks health endpoints on intervals, stores results in TimescaleDB.
+Rust service that continuously monitors site uptime. Reads `config.json` for monitor definitions, checks health endpoints on intervals, stores results in TimescaleDB.
 
 ## Build & Run
 
@@ -16,10 +16,11 @@ cargo check        # type-check without building
 - One `tokio::spawn` per monitor with independent interval loops
 - Shared `reqwest::Client` and `sqlx::PgPool` across all monitors
 - `sqlx::migrate!()` runs embedded migrations on startup
+- Each check inserts into `monitor_checks` hypertable and upserts `monitor_status` for current state
 
 ## Database
 
-TimescaleDB (PostgreSQL extension). Connection string via `DATABASE_URL`. Layered env: `.env` (git-tracked defaults) then `.env.local` (gitignored overrides). Single `monitor_checks` hypertable partitioned by `checked_at` — see `migrations/` for schema.
+TimescaleDB (PostgreSQL extension). Connection string via `DATABASE_URL`. Layered env: `.env` (git-tracked defaults) then `.env.local` (gitignored overrides). Two tables: `monitor_checks` hypertable for time-series history, `monitor_status` for current state per monitor — see `migrations/` for schema.
 
 ## Crate Conventions
 
