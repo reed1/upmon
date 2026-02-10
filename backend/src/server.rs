@@ -5,6 +5,7 @@ use axum::{Json, Router};
 use serde::Deserialize;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
+use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 
 use crate::db;
@@ -16,10 +17,15 @@ struct AppState {
     api_key: String,
 }
 
-pub async fn serve(pool: PgPool, api_key: String, port: u16) {
+pub async fn serve(pool: PgPool, api_key: String, port: u16, frontend_dir: String) {
     let state = AppState { pool, api_key };
+
+    let frontend_service = ServeDir::new(&frontend_dir)
+        .fallback(ServeFile::new(format!("{frontend_dir}/index.html")));
+
     let app = Router::new()
-        .route("/status", get(status_handler))
+        .route("/api/v1/status", get(status_handler))
+        .nest_service("/frontend", frontend_service)
         .with_state(state);
 
     let listener = TcpListener::bind(("0.0.0.0", port))

@@ -5,6 +5,7 @@ pub struct Env {
     pub database_url: String,
     pub api_key: String,
     pub listen_port: u16,
+    pub frontend_dir: String,
 }
 
 impl Env {
