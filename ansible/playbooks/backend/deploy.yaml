@@ -1,0 +1,59 @@
+- name: Deploy Upmon backend
+  hosts: all
+  gather_facts: no
+  become: no
+
+  tasks:
+    - name: Build backend locally
+      delegate_to: localhost
+      ansible.builtin.command:
+        cmd: cargo build --release
+        chdir: "{{ playbook_dir }}/../../../backend"
+
+    - name: Create backend-bin directory
+      ansible.builtin.file:
+        path: ~/app/upmon/backend-bin
+        state: directory
+        mode: "0755"
+
+    - name: Copy backend binary
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../../backend/target/release/upmon-backend"
+        dest: ~/app/upmon/backend-bin/upmon-backend
+        mode: "0755"
+      notify: restart backend
+
+    - name: Template backend .env.local
+      ansible.builtin.template:
+        src: backend.env.local.j2
+        dest: ~/app/upmon/backend-bin/.env.local
+        mode: "0600"
+      notify: restart backend
+
+    - name: Template backend service
+      ansible.builtin.template:
+        src: upmon-backend.service.j2
+        dest: ~/.config/systemd/user/upmon-backend.service
+        mode: "0644"
+      notify:
+        - reload systemd
+        - restart backend
+
+    - name: Enable and start backend
+      ansible.builtin.systemd:
+        name: upmon-backend
+        enabled: true
+        state: started
+        scope: user
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+
+    - name: restart backend
+      ansible.builtin.systemd:
+        name: upmon-backend
+        state: restarted
+        scope: user

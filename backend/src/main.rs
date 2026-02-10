@@ -17,5 +17,5 @@ async fn main() {
     let pool = db::init_pool(&env.database_url).await;
     info!("database ready");
 
-    server::serve(pool, env.api_key, env.api_port).await;
+    server::serve(pool, env.api_key, env.listen_port).await;
 }

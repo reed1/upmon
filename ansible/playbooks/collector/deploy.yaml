@@ -1,0 +1,66 @@
+- name: Deploy Upmon collector
+  hosts: all
+  gather_facts: no
+  become: no
+
+  tasks:
+    - name: Build collector locally
+      delegate_to: localhost
+      ansible.builtin.command:
+        cmd: cargo build --release
+        chdir: "{{ playbook_dir }}/../../../collector"
+
+    - name: Create collector-bin directory
+      ansible.builtin.file:
+        path: ~/app/upmon/collector-bin
+        state: directory
+        mode: "0755"
+
+    - name: Copy collector binary
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../../collector/target/release/upmon-collector"
+        dest: ~/app/upmon/collector-bin/upmon-collector
+        mode: "0755"
+      notify: restart collector
+
+    - name: Build config.json
+      ansible.builtin.copy:
+        content: "{{ upmon_config | combine(lookup('file', '/home/reed/.cache/rlocal/rofi-vscode/monitor.generated.json') | from_json) | to_nice_json }}\n"
+        dest: ~/app/upmon/collector-bin/config.json
+        mode: "0644"
+      notify: restart collector
+
+    - name: Template collector .env.local
+      ansible.builtin.template:
+        src: collector.env.local.j2
+        dest: ~/app/upmon/collector-bin/.env.local
+        mode: "0600"
+      notify: restart collector
+
+    - name: Template collector service
+      ansible.builtin.template:
+        src: upmon-collector.service.j2
+        dest: ~/.config/systemd/user/upmon-collector.service
+        mode: "0644"
+      notify:
+        - reload systemd
+        - restart collector
+
+    - name: Enable and start collector
+      ansible.builtin.systemd:
+        name: upmon-collector
+        enabled: true
+        state: started
+        scope: user
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+
+    - name: restart collector
+      ansible.builtin.systemd:
+        name: upmon-collector
+        state: restarted
+        scope: user

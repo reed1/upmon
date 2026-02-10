@@ -1,0 +1,22 @@
+- name: Deploy Upmon base
+  hosts: all
+  gather_facts: no
+  become: no
+
+  tasks:
+    - name: Clone/update repo
+      ansible.builtin.git:
+        repo: git@github.com:reed1/upmon.git
+        dest: ~/app/upmon
+        version: main
+
+    - name: Enable linger
+      ansible.builtin.command:
+        cmd: loginctl enable-linger {{ ansible_user }}
+      changed_when: false
+
+    - name: Ensure systemd user directory
+      ansible.builtin.file:
+        path: ~/.config/systemd/user
+        state: directory
+        mode: "0755"

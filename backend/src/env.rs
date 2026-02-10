@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-fn default_api_port() -> u16 {
+fn default_listen_port() -> u16 {
     3000
 }
 
@@ -8,8 +8,8 @@ fn default_api_port() -> u16 {
 pub struct Env {
     pub database_url: String,
     pub api_key: String,
-    #[serde(default = "default_api_port")]
-    pub api_port: u16,
+    #[serde(default = "default_listen_port")]
+    pub listen_port: u16,
 }
 
 impl Env {
