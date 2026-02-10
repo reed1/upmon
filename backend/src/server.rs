@@ -10,7 +10,7 @@ use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 
 use crate::db;
-use crate::models::MonitorStatus;
+use crate::models::{DailySummary, MonitorStatus};
 
 #[derive(Clone)]
 struct AppState {
@@ -27,6 +27,7 @@ pub async fn serve(pool: PgPool, api_key: String, port: u16, frontend_dir: Strin
     let app = Router::new()
         .route("/", get(|| async { Redirect::permanent("/frontend") }))
         .route("/api/v1/status", get(status_handler))
+        .route("/api/v1/daily-summary", get(daily_summary_handler))
         .nest_service("/frontend", frontend_service)
         .with_state(state);
 
@@ -63,4 +64,33 @@ async fn status_handler(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(statuses))
+}
+
+#[derive(Deserialize)]
+struct DailySummaryQuery {
+    project_id: Option<String>,
+    days: Option<i32>,
+}
+
+async fn daily_summary_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<DailySummaryQuery>,
+) -> Result<Json<Vec<DailySummary>>, StatusCode> {
+    let key = headers
+        .get("x-api-key")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    if key != state.api_key {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let days = query.days.unwrap_or(7).clamp(1, 90);
+
+    let summaries = db::get_daily_summary(&state.pool, query.project_id.as_deref(), days)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(summaries))
 }

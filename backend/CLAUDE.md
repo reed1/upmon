@@ -13,7 +13,8 @@ cargo check        # type-check without building
 ## Architecture
 
 - Axum router with shared `AppState` (PgPool + API key)
-- API endpoint: `GET /api/v1/status?project_id=<optional>`
+- API endpoint: `GET /api/v1/status?project_id=<optional>` — current monitor status
+- API endpoint: `GET /api/v1/daily-summary?project_id=<optional>&days=<1-90>` — daily uptime aggregation from `monitor_checks`
 - Serves frontend static files at `/frontend` from `FRONTEND_DIR` (defaults to `../frontend/dist`)
 - SPA fallback: unknown paths under `/frontend` serve `index.html`
 - Reads from `monitor_status` table (written by the collector service)
