@@ -1,14 +1,9 @@
 use serde::Deserialize;
 
-fn default_listen_port() -> u16 {
-    3000
-}
-
 #[derive(Deserialize)]
 pub struct Env {
     pub database_url: String,
     pub api_key: String,
-    #[serde(default = "default_listen_port")]
     pub listen_port: u16,
 }
 

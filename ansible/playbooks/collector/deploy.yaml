@@ -8,7 +8,7 @@
       delegate_to: localhost
       ansible.builtin.command:
         cmd: cargo build --release
-        chdir: "{{ playbook_dir }}/../../../collector"
+        chdir: "{{ repo_root }}/collector"
 
     - name: Create collector-bin directory
       ansible.builtin.file:
@@ -18,7 +18,7 @@
 
     - name: Copy collector binary
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../../../collector/target/release/upmon-collector"
+        src: "{{ repo_root }}/collector/target/release/upmon-collector"
         dest: ~/app/upmon/collector-bin/upmon-collector
         mode: "0755"
       notify: restart collector

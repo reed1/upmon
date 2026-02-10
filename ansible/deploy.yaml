@@ -1,3 +1,0 @@
-- import_playbook: playbooks/base.yaml
-- import_playbook: playbooks/collector/deploy.yaml
-- import_playbook: playbooks/backend/deploy.yaml

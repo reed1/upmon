@@ -1,4 +1,6 @@
 all:
+  vars:
+    repo_root: "{{ lookup('pipe', 'git rev-parse --show-toplevel') }}"
   hosts:
     sgtent:
       ansible_user: reed

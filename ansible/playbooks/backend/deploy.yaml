@@ -8,7 +8,7 @@
       delegate_to: localhost
       ansible.builtin.command:
         cmd: cargo build --release
-        chdir: "{{ playbook_dir }}/../../../backend"
+        chdir: "{{ repo_root }}/backend"
 
     - name: Create backend-bin directory
       ansible.builtin.file:
@@ -18,7 +18,7 @@
 
     - name: Copy backend binary
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../../../backend/target/release/upmon-backend"
+        src: "{{ repo_root }}/backend/target/release/upmon-backend"
         dest: ~/app/upmon/backend-bin/upmon-backend
         mode: "0755"
       notify: restart backend
