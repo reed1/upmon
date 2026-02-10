@@ -1,6 +1,14 @@
 all:
   vars:
     repo_root: "{{ lookup('pipe', 'git rev-parse --show-toplevel') }}"
+    app_url: https://upmon.r-mulyadi.com
+    upmon_config:
+      defaults:
+        interval_sec: 120
+        timeout_sec: 10
+        expected_status_code: 200
+        http_method: GET
+      retention_days: 90
   hosts:
     sgtent:
       ansible_user: reed

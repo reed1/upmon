@@ -1,0 +1,20 @@
+- name: Deploy Upmon frontend
+  hosts: all
+  gather_facts: no
+  become: no
+
+  tasks:
+    - name: Build frontend locally
+      delegate_to: localhost
+      ansible.builtin.command:
+        cmd: npm run build
+        chdir: "{{ repo_root }}/frontend"
+      environment:
+        VITE_API_BASE_URL: "{{ app_url }}"
+        VITE_API_KEY: "{{ lookup('pipe', 'rpass get ' + inventory_hostname + '/upmon/api-key') }}"
+
+    - name: Sync frontend dist
+      ansible.posix.synchronize:
+        src: "{{ repo_root }}/frontend/dist/"
+        dest: ~/app/upmon/frontend-dist/
+        delete: true

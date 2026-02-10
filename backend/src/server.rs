@@ -1,5 +1,6 @@
 use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
+use axum::response::Redirect;
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
@@ -24,6 +25,7 @@ pub async fn serve(pool: PgPool, api_key: String, port: u16, frontend_dir: Strin
         .fallback(ServeFile::new(format!("{frontend_dir}/index.html")));
 
     let app = Router::new()
+        .route("/", get(|| async { Redirect::permanent("/frontend") }))
         .route("/api/v1/status", get(status_handler))
         .nest_service("/frontend", frontend_service)
         .with_state(state);
