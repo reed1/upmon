@@ -5,4 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   base: '/frontend/',
   plugins: [vue(), tailwindcss()],
+  server: {
+    allowedHosts: ['.loc'],
+  },
 })
