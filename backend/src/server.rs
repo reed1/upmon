@@ -10,7 +10,7 @@ use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 
 use crate::db;
-use crate::models::{DailySummary, MonitorStatus};
+use crate::models::{HourlySummary, MonitorStatus};
 
 #[derive(Clone)]
 struct AppState {
@@ -76,7 +76,7 @@ async fn daily_summary_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<DailySummaryQuery>,
-) -> Result<Json<Vec<DailySummary>>, StatusCode> {
+) -> Result<Json<HourlySummary>, StatusCode> {
     let key = headers
         .get("x-api-key")
         .and_then(|v| v.to_str().ok())
@@ -88,9 +88,9 @@ async fn daily_summary_handler(
 
     let days = query.days.unwrap_or(7).clamp(1, 90);
 
-    let summaries = db::get_daily_summary(&state.pool, query.project_id.as_deref(), days)
+    let summary = db::get_hourly_summary(&state.pool, query.project_id.as_deref(), days)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(summaries))
+    Ok(Json(summary))
 }

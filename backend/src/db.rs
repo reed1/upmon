@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
+use chrono::Timelike;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::Row;
 
-use crate::models::{DailySummary, MonitorStatus};
+use crate::models::{DayChecks, HourlySummary, MonitorStatus};
 
 pub async fn init_pool(database_url: &str) -> PgPool {
     PgPoolOptions::new()
@@ -42,43 +45,52 @@ pub async fn get_monitor_statuses(pool: &PgPool, project_id: Option<&str>) -> Re
     Ok(statuses)
 }
 
-pub async fn get_daily_summary(pool: &PgPool, project_id: Option<&str>, days: i32) -> Result<Vec<DailySummary>, sqlx::Error> {
+pub async fn get_hourly_summary(pool: &PgPool, project_id: Option<&str>, days: i32) -> Result<HourlySummary, sqlx::Error> {
     let rows = sqlx::query(
         "SELECT project_id, site_key,
-                time_bucket('1 day', checked_at)::date AS day,
-                COUNT(*)::bigint AS total_checks,
-                COUNT(*) FILTER (WHERE is_up)::bigint AS up_checks
+                time_bucket('1 hour', checked_at) AS hour,
+                bool_and(is_up) AS all_up
          FROM monitor_checks
          WHERE checked_at > NOW() - make_interval(days => $1)
            AND ($2::text IS NULL OR project_id = $2)
-         GROUP BY project_id, site_key, day
-         ORDER BY project_id, site_key, day",
+         GROUP BY project_id, site_key, hour
+         ORDER BY project_id, site_key, hour",
     )
     .bind(days)
     .bind(project_id)
     .fetch_all(pool)
     .await?;
 
-    let summaries = rows
-        .into_iter()
-        .map(|row| {
-            let total_checks: i64 = row.get("total_checks");
-            let up_checks: i64 = row.get("up_checks");
-            let uptime_pct = if total_checks > 0 {
-                (up_checks as f64 / total_checks as f64) * 100.0
-            } else {
-                0.0
-            };
-            DailySummary {
-                project_id: row.get("project_id"),
-                site_key: row.get("site_key"),
-                day: row.get("day"),
-                total_checks,
-                up_checks,
-                uptime_pct,
-            }
-        })
-        .collect();
+    let mut result: HourlySummary = HashMap::new();
 
-    Ok(summaries)
+    for row in rows {
+        let project_id: String = row.get("project_id");
+        let site_key: String = row.get("site_key");
+        let hour: chrono::DateTime<chrono::Utc> = row.get("hour");
+        let all_up: bool = row.get("all_up");
+
+        let date = hour.date_naive();
+        let hour_idx = hour.hour() as usize;
+
+        let days_vec = result
+            .entry(project_id)
+            .or_default()
+            .entry(site_key)
+            .or_default();
+
+        let day_entry = match days_vec.last_mut() {
+            Some(last) if last.day == date => last,
+            _ => {
+                days_vec.push(DayChecks {
+                    day: date,
+                    checks: vec![None; 24],
+                });
+                days_vec.last_mut().unwrap()
+            }
+        };
+
+        day_entry.checks[hour_idx] = Some(if all_up { 1 } else { 0 });
+    }
+
+    Ok(result)
 }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 
@@ -16,11 +18,9 @@ pub struct MonitorStatus {
 }
 
 #[derive(Serialize)]
-pub struct DailySummary {
-    pub project_id: String,
-    pub site_key: String,
+pub struct DayChecks {
     pub day: NaiveDate,
-    pub total_checks: i64,
-    pub up_checks: i64,
-    pub uptime_pct: f64,
+    pub checks: Vec<Option<u8>>,
 }
+
+pub type HourlySummary = HashMap<String, HashMap<String, Vec<DayChecks>>>;
