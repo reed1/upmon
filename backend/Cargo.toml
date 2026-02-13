@@ -4,11 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aide = { version = "0.15", features = ["axum", "axum-query", "axum-json", "scalar"] }
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15"
 envy = "0.4"
+indexmap = "2"
+schemars = { version = "0.9", features = ["chrono04"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 sqlx = { version = "0.8", features = ["postgres", "chrono", "runtime-tokio"] }
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.6.8", features = ["fs"] }

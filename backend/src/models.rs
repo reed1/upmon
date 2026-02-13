@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, NaiveDate, Utc};
+use schemars::JsonSchema;
 use serde::Serialize;
 
-#[derive(Serialize)]
+#[derive(Serialize, JsonSchema)]
 pub struct MonitorStatus {
     pub project_id: String,
     pub site_key: String,
@@ -17,7 +18,7 @@ pub struct MonitorStatus {
     pub last_up_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, JsonSchema)]
 pub struct DayChecks {
     pub day: NaiveDate,
     pub checks: Vec<Option<u8>>,
