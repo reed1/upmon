@@ -66,11 +66,11 @@ const sortedDays = computed(() => {
     <div v-if="sortedDays.length" class="mt-3 space-y-1">
       <div v-for="entry in sortedDays" :key="entry.day" class="flex items-center gap-2">
         <span class="text-xs text-gray-500 w-16 shrink-0 text-right">{{ formatDay(entry.day) }}</span>
-        <div class="flex gap-0.5">
+        <div class="flex gap-px items-end">
           <div
             v-for="(val, hour) in entry.checks"
             :key="hour"
-            class="size-2.5 rounded-sm"
+            class="w-1 h-3 rounded-sm"
             :class="cellColor(val)"
             :title="cellTooltip(val, hour)"
           />
