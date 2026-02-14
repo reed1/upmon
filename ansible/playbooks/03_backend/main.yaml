@@ -9,6 +9,7 @@
       ansible.builtin.command:
         cmd: cargo build --release
         chdir: "{{ repo_root }}/backend"
+      tags: [push-backend]
 
     - name: Create backend-bin directory
       ansible.builtin.file:
@@ -22,6 +23,7 @@
         dest: ~/app/upmon/backend-bin/upmon-backend
         mode: "0755"
       notify: restart backend
+      tags: [push-backend]
 
     - name: Template backend .env.local
       ansible.builtin.template:
@@ -29,6 +31,7 @@
         dest: ~/app/upmon/backend-bin/.env.local
         mode: "0600"
       notify: restart backend
+      tags: [push-backend]
 
     - name: Template backend service
       ansible.builtin.template:
@@ -38,6 +41,7 @@
       notify:
         - reload systemd
         - restart backend
+      tags: [push-backend]
 
     - name: Enable and start backend
       ansible.builtin.systemd:

@@ -12,9 +12,11 @@
       environment:
         VITE_API_BASE_URL: "{{ app_url }}"
         VITE_API_KEY: "{{ lookup('pipe', 'rpass get ' + inventory_hostname + '/upmon/api-key') }}"
+      tags: [push-frontend]
 
     - name: Sync frontend dist
       ansible.posix.synchronize:
         src: "{{ repo_root }}/frontend/dist/"
         dest: ~/app/upmon/frontend-dist/
         delete: true
+      tags: [push-frontend]

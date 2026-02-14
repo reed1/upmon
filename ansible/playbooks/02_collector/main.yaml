@@ -9,6 +9,7 @@
       ansible.builtin.command:
         cmd: cargo build --release
         chdir: "{{ repo_root }}/collector"
+      tags: [push-collector]
 
     - name: Create collector-bin directory
       ansible.builtin.file:
@@ -22,6 +23,7 @@
         dest: ~/app/upmon/collector-bin/upmon-collector
         mode: "0755"
       notify: restart collector
+      tags: [push-collector]
 
     - name: Build config.json
       ansible.builtin.copy:
@@ -29,6 +31,7 @@
         dest: ~/app/upmon/collector-bin/config.json
         mode: "0644"
       notify: restart collector
+      tags: [push-collector]
 
     - name: Template collector .env.local
       ansible.builtin.template:
@@ -36,6 +39,7 @@
         dest: ~/app/upmon/collector-bin/.env.local
         mode: "0600"
       notify: restart collector
+      tags: [push-collector]
 
     - name: Template collector service
       ansible.builtin.template:
@@ -45,6 +49,7 @@
       notify:
         - reload systemd
         - restart collector
+      tags: [push-collector]
 
     - name: Enable and start collector
       ansible.builtin.systemd:
