@@ -95,3 +95,71 @@ pub fn build_client(timeout: Duration) -> Client {
         .build()
         .expect("failed to build HTTP client")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn make_monitor(url: &str) -> ResolvedMonitor {
+        ResolvedMonitor {
+            project_id: "test-proj".into(),
+            site_key: "test-site".into(),
+            url: url.to_string(),
+            interval: Duration::from_secs(60),
+            timeout: Duration::from_secs(5),
+            expected_status_code: 200,
+            http_method: "GET".into(),
+        }
+    }
+
+    #[tokio::test]
+    async fn check_200_ok() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/health"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        let client = Client::new();
+        let monitor = make_monitor(&format!("{}/health", server.uri()));
+        let result = execute_check(&client, &monitor).await;
+
+        assert!(result.is_up);
+        assert_eq!(result.status_code, Some(200));
+        assert!(result.error_type.is_none());
+        assert!(result.error_message.is_none());
+    }
+
+    #[tokio::test]
+    async fn check_404_unexpected_status() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/missing"))
+            .respond_with(ResponseTemplate::new(404).set_body_string("not found"))
+            .mount(&server)
+            .await;
+
+        let client = Client::new();
+        let monitor = make_monitor(&format!("{}/missing", server.uri()));
+        let result = execute_check(&client, &monitor).await;
+
+        assert!(!result.is_up);
+        assert_eq!(result.status_code, Some(404));
+        assert_eq!(result.error_type.as_ref().unwrap().as_str(), "unexpected_status");
+        assert!(result.error_message.as_ref().unwrap().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn check_connection_refused() {
+        let client = Client::new();
+        let monitor = make_monitor("http://127.0.0.1:1");
+        let result = execute_check(&client, &monitor).await;
+
+        assert!(!result.is_up);
+        assert!(result.status_code.is_none());
+        assert_eq!(result.error_type.as_ref().unwrap().as_str(), "connection_error");
+    }
+}

@@ -92,3 +92,64 @@ impl Config {
         resolved
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(json: &str) -> Config {
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn monitor_inherits_all_defaults() {
+        let config = parse(r#"{
+            "defaults": { "interval_sec": 60, "timeout_sec": 10 },
+            "projects": [{
+                "id": "proj1",
+                "monitors": [{ "site_key": "site1", "url": "http://example.com" }]
+            }]
+        }"#);
+        let resolved = config.resolve();
+        assert_eq!(resolved.len(), 1);
+        let m = &resolved[0];
+        assert_eq!(m.project_id, "proj1");
+        assert_eq!(m.interval, Duration::from_secs(60));
+        assert_eq!(m.timeout, Duration::from_secs(10));
+        assert_eq!(m.expected_status_code, 200);
+        assert_eq!(m.http_method, "GET");
+    }
+
+    #[test]
+    fn monitor_overrides_take_precedence() {
+        let config = parse(r#"{
+            "defaults": { "interval_sec": 60, "timeout_sec": 10 },
+            "projects": [{
+                "id": "proj1",
+                "monitors": [{
+                    "site_key": "site1",
+                    "url": "http://example.com",
+                    "interval_sec": 30,
+                    "timeout_sec": 5,
+                    "expected_status_code": 204,
+                    "http_method": "HEAD"
+                }]
+            }]
+        }"#);
+        let resolved = config.resolve();
+        let m = &resolved[0];
+        assert_eq!(m.interval, Duration::from_secs(30));
+        assert_eq!(m.timeout, Duration::from_secs(5));
+        assert_eq!(m.expected_status_code, 204);
+        assert_eq!(m.http_method, "HEAD");
+    }
+
+    #[test]
+    fn default_retention_days_when_omitted() {
+        let config = parse(r#"{
+            "defaults": { "interval_sec": 60, "timeout_sec": 10 },
+            "projects": []
+        }"#);
+        assert_eq!(config.retention_days, 90);
+    }
+}

@@ -156,3 +156,55 @@ async fn daily_summary_handler(
 
     Ok(Json(summary))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::Request;
+    use sqlx::postgres::PgPoolOptions;
+    use tower::ServiceExt;
+
+    fn test_app() -> axum::Router {
+        let pool = PgPoolOptions::new()
+            .connect_lazy("postgres://fake:fake@localhost/fake")
+            .unwrap();
+        let state = AppState {
+            pool,
+            api_key: "test-key".into(),
+        };
+
+        let mut api = OpenApi::default();
+        ApiRouter::new()
+            .api_route("/api/v1/status", api_get(status_handler))
+            .api_route("/api/v1/daily-summary", api_get(daily_summary_handler))
+            .finish_api_with(&mut api, api_docs)
+            .layer(Extension(Arc::new(api)))
+            .with_state(state)
+    }
+
+    #[tokio::test]
+    async fn missing_api_key_returns_401() {
+        let app = test_app();
+        let req = Request::builder()
+            .uri("/api/v1/status")
+            .body(Body::empty())
+            .unwrap();
+
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn wrong_api_key_returns_401() {
+        let app = test_app();
+        let req = Request::builder()
+            .uri("/api/v1/status")
+            .header("x-api-key", "wrong-key")
+            .body(Body::empty())
+            .unwrap();
+
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+}

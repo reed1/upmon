@@ -10,7 +10,7 @@ use crate::config::ResolvedMonitor;
 use crate::db;
 use crate::monitor;
 
-pub fn spawn_monitors(monitors: Vec<ResolvedMonitor>, pool: PgPool, client: Client) {
+pub fn stagger_delays(monitors: &[ResolvedMonitor]) -> Vec<Duration> {
     let count = monitors.len();
     let min_interval = monitors
         .iter()
@@ -22,11 +22,17 @@ pub fn spawn_monitors(monitors: Vec<ResolvedMonitor>, pool: PgPool, client: Clie
     } else {
         Duration::ZERO
     };
+    (0..count)
+        .map(|i| stagger_step * i as u32)
+        .collect()
+}
 
-    for (i, m) in monitors.into_iter().enumerate() {
+pub fn spawn_monitors(monitors: Vec<ResolvedMonitor>, pool: PgPool, client: Client) {
+    let delays = stagger_delays(&monitors);
+
+    for (m, initial_delay) in monitors.into_iter().zip(delays) {
         let pool = pool.clone();
         let client = client.clone();
-        let initial_delay = stagger_step * i as u32;
         tokio::spawn(run_monitor_loop(Arc::new(m), pool, client, initial_delay));
     }
 }
@@ -88,5 +94,52 @@ async fn run_monitor_loop(
                 "failed to upsert monitor status"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_monitor(interval_secs: u64) -> ResolvedMonitor {
+        ResolvedMonitor {
+            project_id: "p".into(),
+            site_key: "s".into(),
+            url: "http://example.com".into(),
+            interval: Duration::from_secs(interval_secs),
+            timeout: Duration::from_secs(10),
+            expected_status_code: 200,
+            http_method: "GET".into(),
+        }
+    }
+
+    #[test]
+    fn single_monitor_zero_delay() {
+        let monitors = vec![make_monitor(120)];
+        let delays = stagger_delays(&monitors);
+        assert_eq!(delays, vec![Duration::ZERO]);
+    }
+
+    #[test]
+    fn two_monitors_evenly_spaced() {
+        let monitors = vec![make_monitor(120), make_monitor(120)];
+        let delays = stagger_delays(&monitors);
+        assert_eq!(delays, vec![Duration::ZERO, Duration::from_secs(60)]);
+    }
+
+    #[test]
+    fn three_monitors_uses_min_interval() {
+        let monitors = vec![
+            make_monitor(300),
+            make_monitor(60),
+            make_monitor(120),
+        ];
+        let delays = stagger_delays(&monitors);
+        // min_interval = 60s, step = 60/3 = 20s
+        assert_eq!(delays, vec![
+            Duration::ZERO,
+            Duration::from_secs(20),
+            Duration::from_secs(40),
+        ]);
     }
 }
