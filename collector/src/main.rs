@@ -30,8 +30,9 @@ async fn main() {
     info!("database ready");
 
     let client = monitor::build_client(Duration::from_secs(30));
+    let insecure_client = monitor::build_insecure_client(Duration::from_secs(30));
 
-    scheduler::spawn_monitors(monitors, pool, client);
+    scheduler::spawn_monitors(monitors, pool, client, insecure_client);
 
     info!("collector running — press ctrl+c to stop");
     tokio::signal::ctrl_c()

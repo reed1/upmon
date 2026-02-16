@@ -13,7 +13,14 @@
         {
           "site_key": "prod",
           "url": "https://abubot.r-mulyadi.com/health",
-          "expected_body": {"status": "UP"}
+          "expected_body": {
+            "status": "UP"
+          }
+        },
+        {
+          "site_key": "insecure-cert-example",
+          "url": "https://example.com/health",
+          "tls_skip_verify": true
         }
       ]
     }

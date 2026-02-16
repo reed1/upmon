@@ -27,13 +27,17 @@ pub fn stagger_delays(monitors: &[ResolvedMonitor]) -> Vec<Duration> {
         .collect()
 }
 
-pub fn spawn_monitors(monitors: Vec<ResolvedMonitor>, pool: PgPool, client: Client) {
+pub fn spawn_monitors(monitors: Vec<ResolvedMonitor>, pool: PgPool, client: Client, insecure_client: Client) {
     let delays = stagger_delays(&monitors);
 
     for (m, initial_delay) in monitors.into_iter().zip(delays) {
         let pool = pool.clone();
-        let client = client.clone();
-        tokio::spawn(run_monitor_loop(Arc::new(m), pool, client, initial_delay));
+        let selected_client = if m.tls_skip_verify {
+            insecure_client.clone()
+        } else {
+            client.clone()
+        };
+        tokio::spawn(run_monitor_loop(Arc::new(m), pool, selected_client, initial_delay));
     }
 }
 
@@ -111,6 +115,7 @@ mod tests {
             expected_status_code: 200,
             http_method: "GET".into(),
             expected_body: None,
+            tls_skip_verify: false,
         }
     }
 

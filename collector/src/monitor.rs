@@ -123,6 +123,14 @@ pub fn build_client(timeout: Duration) -> Client {
         .expect("failed to build HTTP client")
 }
 
+pub fn build_insecure_client(timeout: Duration) -> Client {
+    Client::builder()
+        .timeout(timeout)
+        .danger_accept_invalid_certs(true)
+        .build()
+        .expect("failed to build insecure HTTP client")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,7 +147,13 @@ mod tests {
             expected_status_code: 200,
             http_method: "GET".into(),
             expected_body: None,
+            tls_skip_verify: false,
         }
+    }
+
+    #[test]
+    fn build_insecure_client_succeeds() {
+        let _client = build_insecure_client(Duration::from_secs(10));
     }
 
     #[tokio::test]

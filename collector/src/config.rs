@@ -47,6 +47,7 @@ pub struct Monitor {
     pub expected_status_code: Option<u16>,
     pub http_method: Option<String>,
     pub expected_body: Option<serde_json::Value>,
+    pub tls_skip_verify: Option<bool>,
 }
 
 pub struct ResolvedMonitor {
@@ -58,6 +59,7 @@ pub struct ResolvedMonitor {
     pub expected_status_code: u16,
     pub http_method: String,
     pub expected_body: Option<serde_json::Value>,
+    pub tls_skip_verify: bool,
 }
 
 impl Config {
@@ -89,6 +91,7 @@ impl Config {
                         .http_method
                         .unwrap_or_else(|| self.defaults.http_method.clone()),
                     expected_body: monitor.expected_body,
+                    tls_skip_verify: monitor.tls_skip_verify.unwrap_or(false),
                 });
             }
         }
