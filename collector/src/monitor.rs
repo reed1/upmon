@@ -22,23 +22,28 @@ pub async fn execute_check(client: &Client, monitor: &ResolvedMonitor) -> CheckR
     let checked_at = Utc::now();
 
     match result {
-        Ok(mut response) => {
+        Ok(response) => {
             let status = response.status().as_u16();
-            let is_up = status == monitor.expected_status_code;
+            let status_ok = status == monitor.expected_status_code;
 
-            let (error_type, error_message) = if is_up {
-                (None, None)
-            } else {
-                const MAX_BODY_BYTES: usize = 2048;
-                let mut buf = Vec::with_capacity(MAX_BODY_BYTES);
-                while let Ok(Some(chunk)) = response.chunk().await {
-                    let remaining = MAX_BODY_BYTES - buf.len();
-                    buf.extend_from_slice(&chunk[..chunk.len().min(remaining)]);
-                    if buf.len() >= MAX_BODY_BYTES {
-                        break;
-                    }
+            let body_text = match response.text().await {
+                Ok(t) => t,
+                Err(e) => {
+                    return CheckResult {
+                        project_id: monitor.project_id.clone(),
+                        site_key: monitor.site_key.clone(),
+                        url: monitor.url.clone(),
+                        status_code: Some(status as i16),
+                        response_ms,
+                        is_up: false,
+                        error_type: Some(ErrorType::ConnectionError),
+                        error_message: Some(format!("failed to read response body: {e}")),
+                        checked_at,
+                    };
                 }
-                let body = String::from_utf8_lossy(&buf);
+            };
+
+            let (is_up, error_type, error_message) = if !status_ok {
                 warn!(
                     project = monitor.project_id,
                     site = monitor.site_key,
@@ -46,7 +51,29 @@ pub async fn execute_check(client: &Client, monitor: &ResolvedMonitor) -> CheckR
                     actual = status,
                     "unexpected status code"
                 );
-                (Some(ErrorType::UnexpectedStatus), Some(truncate_error_message(&body)))
+                (false, Some(ErrorType::UnexpectedStatus), Some(truncate_error_message(&body_text)))
+            } else if let Some(expected) = &monitor.expected_body {
+                match serde_json::from_str::<serde_json::Value>(&body_text) {
+                    Ok(actual) if &actual == expected => (true, None, None),
+                    Ok(actual) => {
+                        warn!(
+                            project = monitor.project_id,
+                            site = monitor.site_key,
+                            "unexpected response body"
+                        );
+                        (false, Some(ErrorType::UnexpectedBody), Some(truncate_error_message(&actual.to_string())))
+                    }
+                    Err(_) => {
+                        warn!(
+                            project = monitor.project_id,
+                            site = monitor.site_key,
+                            "response body is not valid JSON"
+                        );
+                        (false, Some(ErrorType::UnexpectedBody), Some(truncate_error_message(&body_text)))
+                    }
+                }
+            } else {
+                (true, None, None)
             };
 
             CheckResult {
@@ -111,6 +138,7 @@ mod tests {
             timeout: Duration::from_secs(5),
             expected_status_code: 200,
             http_method: "GET".into(),
+            expected_body: None,
         }
     }
 

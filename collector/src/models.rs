@@ -5,6 +5,7 @@ pub enum ErrorType {
     Timeout,
     ConnectionError,
     UnexpectedStatus,
+    UnexpectedBody,
 }
 
 impl ErrorType {
@@ -13,6 +14,7 @@ impl ErrorType {
             ErrorType::Timeout => "timeout",
             ErrorType::ConnectionError => "connection_error",
             ErrorType::UnexpectedStatus => "unexpected_status",
+            ErrorType::UnexpectedBody => "unexpected_body",
         }
     }
 }

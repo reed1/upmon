@@ -12,7 +12,8 @@
       "monitors": [
         {
           "site_key": "prod",
-          "url": "https://abubot.r-mulyadi.com/health"
+          "url": "https://abubot.r-mulyadi.com/health",
+          "expected_body": {"status": "UP"}
         }
       ]
     }

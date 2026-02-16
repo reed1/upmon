@@ -46,6 +46,7 @@ pub struct Monitor {
     pub timeout_sec: Option<u64>,
     pub expected_status_code: Option<u16>,
     pub http_method: Option<String>,
+    pub expected_body: Option<serde_json::Value>,
 }
 
 pub struct ResolvedMonitor {
@@ -56,6 +57,7 @@ pub struct ResolvedMonitor {
     pub timeout: Duration,
     pub expected_status_code: u16,
     pub http_method: String,
+    pub expected_body: Option<serde_json::Value>,
 }
 
 impl Config {
@@ -86,6 +88,7 @@ impl Config {
                     http_method: monitor
                         .http_method
                         .unwrap_or_else(|| self.defaults.http_method.clone()),
+                    expected_body: monitor.expected_body,
                 });
             }
         }

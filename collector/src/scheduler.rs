@@ -110,6 +110,7 @@ mod tests {
             timeout: Duration::from_secs(10),
             expected_status_code: 200,
             http_method: "GET".into(),
+            expected_body: None,
         }
     }
 

@@ -2,6 +2,7 @@
 import argparse
 import os
 import subprocess
+import glob
 import sys
 
 SERVERS = {
@@ -25,12 +26,13 @@ def main():
     print()
 
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    playbooks = sorted(glob.glob("playbooks/*/main.yaml"))
     subprocess.run(
         [
             "ansible-playbook",
             "-i",
             "inventory.yaml",
-            "playbooks/*/main.yaml",
+            *playbooks,
             "--limit",
             limit,
             "--tags",
