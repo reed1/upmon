@@ -31,7 +31,7 @@
         dest: ~/app/upmon/collector-bin/config.json
         mode: "0644"
       notify: restart collector
-      tags: [push-collector]
+      tags: [push-collector, push-collector-monitor]
 
     - name: Template collector .env.local
       ansible.builtin.template:
@@ -69,3 +69,4 @@
         name: upmon-collector
         state: restarted
         scope: user
+      tags: [push-collector, push-collector-monitor]
