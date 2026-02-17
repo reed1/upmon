@@ -27,7 +27,7 @@
 
     - name: Build config.json
       ansible.builtin.copy:
-        content: "{{ upmon_config | combine(lookup('file', '/home/reed/.cache/rlocal/rofi-vscode/monitor.generated.json') | from_json) | to_nice_json }}\n"
+        content: "{{ upmon_config | combine(lookup('file', '/home/reed/.cache/rlocal/rofi-vscode/site_monitors.generated.json') | from_json) | to_nice_json }}\n"
         dest: ~/app/upmon/collector-bin/config.json
         mode: "0644"
       notify: restart collector
