@@ -75,6 +75,7 @@ pub async fn serve(pool: PgPool, api_key: String, port: u16, frontend_dir: Strin
         .api_route("/api/v1/daily-summary", api_get(daily_summary_handler))
         .finish_api_with(&mut api, api_docs)
         .route("/", get(|| async { Redirect::permanent("/frontend") }))
+        .route("/health", get(health_handler))
         .route("/openapi.json", get(openapi_handler))
         .route("/docs", get(docs_handler))
         .nest_service("/frontend", frontend_service)
@@ -102,6 +103,10 @@ fn api_docs(api: TransformOpenApi) -> TransformOpenApi {
                 extensions: Default::default(),
             },
         )
+}
+
+async fn health_handler() -> impl IntoResponse {
+    Json(serde_json::json!({"status": "UP"}))
 }
 
 async fn openapi_handler(Extension(api): Extension<Arc<OpenApi>>) -> impl IntoResponse {
