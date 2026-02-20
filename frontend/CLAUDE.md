@@ -13,7 +13,8 @@ npm run build      # production build to dist/
 ## Architecture
 
 - Vite `base: '/frontend/'` so assets resolve correctly under the subpath
-- `src/api.js` — `fetchStatus(projectId)` helper calling `/api/v1/status` with `x-api-key` header
+- `src/api.ts` — `fetchStatus(projectId)` helper calling `/api/v1/status` with `x-api-key` header
+- `src/types.ts` — shared TypeScript interfaces for API responses (`SiteStatus`, `DayEntry`, `DailySummaryResponse`)
 - API base URL and key are baked in at build time via Vite env vars
 
 ## Environment

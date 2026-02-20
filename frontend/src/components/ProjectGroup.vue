@@ -1,16 +1,19 @@
-<script setup>
-import SiteCard from './SiteCard.vue'
+<script setup lang="ts">
+import type { SiteStatus, DayEntry } from '../types';
+import SiteCard from './SiteCard.vue';
 
-defineProps({
-  projectId: { type: String, required: true },
-  sites: { type: Array, required: true },
-  dailySummary: { type: Object, default: () => ({}) },
-})
+defineProps<{
+  projectId: string;
+  sites: SiteStatus[];
+  dailySummary: Record<string, DayEntry[]>;
+}>();
 </script>
 
 <template>
   <section>
-    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
+    <h2
+      class="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3"
+    >
       Project: {{ projectId }}
     </h2>
     <div class="space-y-3">
