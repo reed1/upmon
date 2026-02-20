@@ -1,18 +1,18 @@
 # Upmon Backend
 
-Rust/Axum HTTP API serving monitor status data from TimescaleDB and the Vue frontend. Authenticates API routes via `x-api-key` header.
+Python/FastAPI HTTP API serving monitor status data from TimescaleDB and the Vue frontend. Authenticates API routes via `x-api-key` header.
 
 ## Build & Run
 
 ```
-cargo build
-cargo run          # requires DATABASE_URL, API_KEY, LISTEN_PORT, FRONTEND_DIR in env
-cargo check        # type-check without building
+uv sync              # install dependencies
+uv run upmon-backend # start server (requires DATABASE_URL, API_KEY, LISTEN_PORT in env)
+uv run pytest        # run tests
 ```
 
 ## Architecture
 
-- Axum router with shared `AppState` (PgPool + API key)
+- FastAPI app with asyncpg connection pool
 - API endpoint: `GET /api/v1/status?project_id=<optional>` — current monitor status
 - API endpoint: `GET /api/v1/daily-summary?project_id=<optional>&days=<1-90>` — daily uptime aggregation from `monitor_checks`
 - Serves frontend static files at `/frontend` from `FRONTEND_DIR` (defaults to `../frontend/dist`)
@@ -23,8 +23,3 @@ cargo check        # type-check without building
 ## Database
 
 TimescaleDB (PostgreSQL extension). Connection string via `DATABASE_URL`. Layered env: `.env` (git-tracked defaults) then `.env.local` (gitignored overrides).
-
-## Crate Conventions
-
-- Runtime queries (`sqlx::query`), not compile-time macros (`sqlx::query!`)
-- `tracing` for structured logging, not `println!` or `log`

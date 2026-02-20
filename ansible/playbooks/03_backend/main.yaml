@@ -4,31 +4,16 @@
   become: no
 
   tasks:
-    - name: Build backend locally
-      delegate_to: localhost
+    - name: Install backend Python dependencies
       ansible.builtin.command:
-        cmd: cargo build --release
-        chdir: "{{ repo_root }}/backend"
-      tags: [push-backend]
-
-    - name: Create backend-bin directory
-      ansible.builtin.file:
-        path: ~/app/upmon/backend-bin
-        state: directory
-        mode: "0755"
-
-    - name: Copy backend binary
-      ansible.builtin.copy:
-        src: "{{ repo_root }}/backend/target/release/upmon-backend"
-        dest: ~/app/upmon/backend-bin/upmon-backend
-        mode: "0755"
-      notify: restart backend
+        cmd: uv sync --frozen
+        chdir: ~/app/upmon/backend
       tags: [push-backend]
 
     - name: Template backend .env.local
       ansible.builtin.template:
         src: backend.env.local.j2
-        dest: ~/app/upmon/backend-bin/.env.local
+        dest: ~/app/upmon/backend/.env.local
         mode: "0600"
       notify: restart backend
       tags: [push-backend]
