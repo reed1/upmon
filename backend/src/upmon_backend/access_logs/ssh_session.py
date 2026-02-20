@@ -48,9 +48,7 @@ class SSHSessionManager:
                 self._locks[site_key] = asyncio.Lock()
             return self._locks[site_key]
 
-    async def get_session(
-        self, site_key: str, ssh_host: str, db_path: str
-    ) -> SSHSession:
+    async def get_session(self, site_key: str, ssh_host: str, db_path: str) -> SSHSession:
         existing = self._sessions.get(site_key)
         if existing and existing.is_alive():
             return existing
@@ -63,9 +61,7 @@ class SSHSessionManager:
 
             return await self._spawn(site_key, ssh_host, db_path)
 
-    async def _spawn(
-        self, site_key: str, ssh_host: str, db_path: str
-    ) -> SSHSession:
+    async def _spawn(self, site_key: str, ssh_host: str, db_path: str) -> SSHSession:
         local_port = _find_free_local_port()
         remote_port = _random_remote_port()
 
@@ -73,11 +69,18 @@ class SSHSessionManager:
 
         proc = await asyncio.create_subprocess_exec(
             "ssh",
-            "-L", f"{local_port}:127.0.0.1:{remote_port}",
-            "-o", "ExitOnForwardFailure=yes",
-            "-o", "StrictHostKeyChecking=accept-new",
+            "-L",
+            f"{local_port}:127.0.0.1:{remote_port}",
+            "-o",
+            "ExitOnForwardFailure=yes",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
             ssh_host,
-            "python3", "-u", "-", str(remote_port), db_path,
+            "python3",
+            "-u",
+            "-",
+            str(remote_port),
+            db_path,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -87,9 +90,7 @@ class SSHSessionManager:
         proc.stdin.close()
 
         try:
-            line = await asyncio.wait_for(
-                proc.stdout.readline(), timeout=READY_TIMEOUT
-            )
+            line = await asyncio.wait_for(proc.stdout.readline(), timeout=READY_TIMEOUT)
         except asyncio.TimeoutError:
             proc.kill()
             stderr = await proc.stderr.read()
@@ -103,8 +104,7 @@ class SSHSessionManager:
             proc.kill()
             stderr = await proc.stderr.read()
             raise RuntimeError(
-                f"Unexpected relay output for {site_key}: {decoded!r}. "
-                f"stderr: {stderr.decode(errors='replace')}"
+                f"Unexpected relay output for {site_key}: {decoded!r}. " f"stderr: {stderr.decode(errors='replace')}"
             )
 
         session = SSHSession(
@@ -116,7 +116,9 @@ class SSHSessionManager:
         self._sessions[site_key] = session
         logger.info(
             "SSH relay started for %s (local:%d → remote:%d)",
-            site_key, local_port, remote_port,
+            site_key,
+            local_port,
+            remote_port,
         )
         return session
 

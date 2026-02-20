@@ -9,7 +9,7 @@ Prints "RELAY_READY <port>" to stdout when listening.
 Exits after 5 minutes of inactivity.
 """
 
-SCRIPT = r'''
+SCRIPT = r"""
 import json
 import sqlite3
 import sys
@@ -79,4 +79,4 @@ reset_idle_timer()
 print(f"RELAY_READY {port}", flush=True)
 server.serve_forever()
 conn.close()
-'''
+"""
