@@ -5,6 +5,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]",
     "asyncpg",
+    "httpx",
     "pydantic-settings",
 ]
 
@@ -15,7 +16,6 @@ upmon-backend = "upmon_backend.main:main"
 dev = [
     "pytest",
     "pytest-asyncio",
-    "httpx",
 ]
 
 [tool.pytest.ini_options]

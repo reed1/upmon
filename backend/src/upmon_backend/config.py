@@ -12,3 +12,4 @@ class Settings(BaseSettings):
     api_key: str
     listen_port: int
     frontend_dir: str = "../frontend/dist"
+    access_logs_config: str = "access_logs.json"
