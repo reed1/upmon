@@ -6,7 +6,7 @@
   tasks:
     - name: Install backend Python dependencies
       ansible.builtin.command:
-        cmd: uv sync --frozen
+        cmd: ~/.local/bin/uv sync --frozen
         chdir: ~/app/upmon/backend
       tags: [push-backend]
 
