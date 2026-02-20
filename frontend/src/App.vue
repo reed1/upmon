@@ -89,7 +89,7 @@ onUnmounted(() => {
             <span class="size-2.5 rounded-full bg-emerald-500" />
             <span class="text-gray-300">{{ upCount }} up</span>
           </div>
-          <div v-if="downCount" class="flex items-center gap-2">
+          <div class="flex items-center gap-2">
             <span class="size-2.5 rounded-full bg-red-500" />
             <span class="text-gray-300">{{ downCount }} down</span>
           </div>
