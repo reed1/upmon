@@ -1,4 +1,5 @@
-/.env.local
 /.venv
 __pycache__/
-access_logs.json
+
+/.env.local
+/access_logs.json
