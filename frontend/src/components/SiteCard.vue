@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { SiteStatus, DayEntry } from '../types';
+import SiteCardContent from './SiteCardContent.vue';
 
 const props = defineProps<{
   status: SiteStatus;
@@ -44,55 +45,35 @@ const sortedDays = computed(() => {
 </script>
 
 <template>
-  <div class="bg-gray-900 border border-gray-800 rounded-lg p-4">
-    <div class="flex items-center justify-between gap-4">
-      <div class="flex items-center gap-2 min-w-0">
-        <span
-          class="shrink-0 size-2.5 rounded-full"
-          :class="status.is_up ? 'bg-emerald-500' : 'bg-red-500'"
-        />
-        <router-link
-          v-if="hasAccessLogs"
-          :to="`/sites/${status.project_id}/${status.site_key}`"
-          class="font-medium truncate hover:text-white transition-colors"
-        >
-          {{ status.site_key }}
-        </router-link>
-        <span v-else class="font-medium truncate">{{ status.site_key }}</span>
-      </div>
-      <div class="flex items-center gap-4 text-sm text-gray-400 shrink-0">
-        <span v-if="status.response_ms != null"
-          >{{ status.response_ms }}ms</span
-        >
-        <span>{{ timeAgo(status.last_checked_at) }}</span>
-      </div>
+  <router-link
+    v-if="hasAccessLogs"
+    :to="`/sites/${status.project_id}/${status.site_key}`"
+    class="block bg-gray-900 border border-gray-800 border-l-blue-500/60 border-l-2 rounded-lg p-4 transition-colors hover:border-gray-600 hover:border-l-blue-400 cursor-pointer"
+  >
+    <SiteCardContent
+      :status="status"
+      :sorted-days="sortedDays"
+      :format-day="formatDay"
+      :cell-color="cellColor"
+      :cell-tooltip="cellTooltip"
+      :time-ago="timeAgo"
+    />
+    <div class="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
+      <svg class="size-3.5" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1H2V3Zm0 3v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6H2Zm3 2h6v1H5V8Zm0 3h4v1H5v-1Z"/>
+      </svg>
+      <span>Access Logs</span>
+      <span>&rarr;</span>
     </div>
-
-    <div class="mt-1 text-sm text-gray-500 truncate">{{ status.url }}</div>
-
-    <div v-if="status.error_message" class="mt-2 text-sm text-red-400">
-      {{ status.error_message }}
-    </div>
-
-    <div v-if="sortedDays.length" class="mt-3 space-y-1">
-      <div
-        v-for="entry in sortedDays"
-        :key="entry.day"
-        class="flex items-center gap-2"
-      >
-        <span class="text-xs text-gray-500 w-16 shrink-0 text-right">{{
-          formatDay(entry.day)
-        }}</span>
-        <div class="flex gap-px items-end">
-          <div
-            v-for="(val, hour) in entry.checks"
-            :key="hour"
-            class="w-1 h-3 rounded-sm"
-            :class="cellColor(val)"
-            :title="cellTooltip(val, hour)"
-          />
-        </div>
-      </div>
-    </div>
+  </router-link>
+  <div v-else class="bg-gray-900 border border-gray-800 rounded-lg p-4">
+    <SiteCardContent
+      :status="status"
+      :sorted-days="sortedDays"
+      :format-day="formatDay"
+      :cell-color="cellColor"
+      :cell-tooltip="cellTooltip"
+      :time-ago="timeAgo"
+    />
   </div>
 </template>

@@ -47,10 +47,11 @@ export async function fetchAccessLogSites(): Promise<AccessLogSiteInfo[]> {
 }
 
 export async function fetchAccessLogStats(
-  configKey: string,
+  projectId: string,
+  siteKey: string,
 ): Promise<AccessLogStats> {
   const url = new URL(
-    `/api/v1/access-logs/sites/${encodeURIComponent(configKey)}/stats`,
+    `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/stats`,
     BASE_URL,
   );
   const res = await fetch(url, {
@@ -61,11 +62,12 @@ export async function fetchAccessLogStats(
 }
 
 export async function fetchAccessLogEntries(
-  configKey: string,
+  projectId: string,
+  siteKey: string,
   limit: number = 50,
 ): Promise<AccessLogEntries> {
   const url = new URL(
-    `/api/v1/access-logs/sites/${encodeURIComponent(configKey)}/logs`,
+    `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/logs`,
     BASE_URL,
   );
   url.searchParams.set('limit', String(limit));

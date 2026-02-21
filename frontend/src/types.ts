@@ -19,7 +19,6 @@ export interface DayEntry {
 export type DailySummaryResponse = Record<string, Record<string, DayEntry[]>>;
 
 export interface AccessLogSiteInfo {
-  config_key: string;
   project_id: string;
   site_key: string;
 }

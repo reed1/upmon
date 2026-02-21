@@ -9,4 +9,4 @@ class AccessLogSite(BaseModel):
 
 
 class AccessLogsConfig(BaseModel):
-    sites: dict[str, AccessLogSite]
+    sites: list[AccessLogSite]

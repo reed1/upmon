@@ -2,16 +2,8 @@
 import { ref, onMounted } from 'vue';
 import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
-import {
-  fetchAccessLogSites,
-  fetchAccessLogStats,
-  fetchAccessLogEntries,
-} from '../api';
-import type {
-  AccessLogSiteInfo,
-  AccessLogStats,
-  AccessLogEntries,
-} from '../types';
+import { fetchAccessLogStats, fetchAccessLogEntries } from '../api';
+import type { AccessLogStats, AccessLogEntries } from '../types';
 
 const route = useRoute();
 const projectId = route.params.projectId as string;
@@ -44,17 +36,9 @@ function statusColor(code: number): string {
 
 onMounted(async () => {
   try {
-    const sites = await fetchAccessLogSites();
-    const site = sites.find(
-      (s: AccessLogSiteInfo) =>
-        s.project_id === projectId && s.site_key === siteKey,
-    );
-    if (!site)
-      throw new Error(`No access log config for ${projectId}/${siteKey}`);
-
     const [statsData, entriesData] = await Promise.all([
-      fetchAccessLogStats(site.config_key),
-      fetchAccessLogEntries(site.config_key, 50),
+      fetchAccessLogStats(projectId, siteKey),
+      fetchAccessLogEntries(projectId, siteKey, 50),
     ]);
     stats.value = statsData;
     entries.value = entriesData;
