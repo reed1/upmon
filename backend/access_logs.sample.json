@@ -1,10 +1,10 @@
 {
   "sites": [
     {
-      "project_id": "elogbook-tht",
+      "project_id": "my-project",
       "site_key": "dev",
-      "ssh_host": "dev-thtui",
-      "db_path": "/home/medimedi/app/elogbook-tht/dev/elogbook-tht/backend/run/access-logs/access-log.db"
+      "ssh_host": "my-server",
+      "db_path": "/path/to/access-logs.db"
     }
   ]
 }
