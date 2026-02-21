@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 
 from . import db
 from .access_logs.config import AccessLogsConfig
@@ -16,21 +16,6 @@ from .models import HourlySummary, MonitorStatus
 from .spa import SPAStaticFiles
 
 logger = logging.getLogger("upmon_backend")
-
-SCALAR_HTML = """\
-<!doctype html>
-<html>
-<head>
-<title>Upmon API</title>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<style>:root { --scalar-font: system-ui, sans-serif !important; }</style>
-</head>
-<body>
-<script id="api-reference" data-url="/openapi.json"></script>
-<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
-</body>
-</html>"""
 
 
 def _load_access_logs_config(path: str) -> AccessLogsConfig | None:
@@ -68,7 +53,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="Upmon API",
         summary="Uptime monitoring API",
         lifespan=lifespan,
-        docs_url=None,
         redoc_url=None,
     )
     app.state.settings = settings
@@ -80,10 +64,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health", include_in_schema=False)
     async def health():
         return {"status": "UP"}
-
-    @app.get("/docs", include_in_schema=False)
-    async def docs():
-        return HTMLResponse(SCALAR_HTML)
 
     @app.get(
         "/api/v1/status",
