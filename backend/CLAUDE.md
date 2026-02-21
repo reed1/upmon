@@ -6,7 +6,7 @@ Python/FastAPI HTTP API serving monitor status data from TimescaleDB and the Vue
 
 ```
 uv sync              # install dependencies
-uv run upmon-backend # start server (requires DATABASE_URL, API_KEY, LISTEN_PORT in env)
+uv run fastapi dev              # start dev server (requires DATABASE_URL, API_KEY in env)
 uv run pytest        # run tests
 ```
 

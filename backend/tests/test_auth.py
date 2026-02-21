@@ -10,7 +10,6 @@ def app():
     settings = Settings(
         database_url="postgres://fake:fake@localhost/fake",
         api_key="test-key",
-        listen_port=9999,
         frontend_dir="/tmp",
     )
     return create_app(settings)

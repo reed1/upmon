@@ -9,9 +9,6 @@ dependencies = [
     "pydantic-settings",
 ]
 
-[project.scripts]
-upmon-backend = "upmon_backend.main:main"
-
 [dependency-groups]
 dev = [
     "pytest",

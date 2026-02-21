@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=%h/app/upmon/backend
-ExecStart=%h/.local/bin/uv run upmon-backend
+ExecStart=%h/.local/bin/uv run fastapi run --port {{ lookup('pipe', 'rpass port get ' + inventory_hostname + '/upmon-backend') }} src/upmon_backend/main.py
 Restart=on-failure
 RestartSec=5
 

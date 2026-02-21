@@ -3,7 +3,6 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import uvicorn
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
@@ -48,15 +47,11 @@ async def lifespan(app: FastAPI):
     app.state.pool = await db.create_pool(app.state.settings.database_url)
     logger.info("database ready")
 
-    access_logs_config = _load_access_logs_config(
-        app.state.settings.access_logs_config
-    )
+    access_logs_config = _load_access_logs_config(app.state.settings.access_logs_config)
     if access_logs_config:
         app.state.access_logs_config = access_logs_config
         app.state.ssh_session_manager = SSHSessionManager()
-        logger.info(
-            "Access logs enabled with %d site(s)", len(access_logs_config.sites)
-        )
+        logger.info("Access logs enabled with %d site(s)", len(access_logs_config.sites))
 
     yield
 
@@ -99,9 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         request: Request,
         project_id: str | None = Query(None),
     ) -> list[dict]:
-        rows = await db.get_monitor_statuses(
-            request.app.state.pool, project_id
-        )
+        rows = await db.get_monitor_statuses(request.app.state.pool, project_id)
         return [dict(r) for r in rows]
 
     @app.get(
@@ -115,9 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         days: int = Query(7),
     ) -> HourlySummary:
         days = max(1, min(days, 90))
-        return await db.get_hourly_summary(
-            request.app.state.pool, project_id, days
-        )
+        return await db.get_hourly_summary(request.app.state.pool, project_id, days)
 
     app.include_router(access_logs_router)
 
@@ -131,15 +122,3 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 app = create_app()
-
-
-def main():
-    settings = Settings()
-    logging.basicConfig(level=logging.INFO)
-    logger.info("HTTP server listening on port %d", settings.listen_port)
-    uvicorn.run(
-        create_app(settings),
-        host="0.0.0.0",
-        port=settings.listen_port,
-        log_level="info",
-    )
