@@ -5,6 +5,7 @@ import type { SiteStatus, DayEntry } from '../types';
 const props = defineProps<{
   status: SiteStatus;
   dailySummary: DayEntry[];
+  hasAccessLogs: boolean;
 }>();
 
 function timeAgo(dateStr: string | null): string {
@@ -50,7 +51,14 @@ const sortedDays = computed(() => {
           class="shrink-0 size-2.5 rounded-full"
           :class="status.is_up ? 'bg-emerald-500' : 'bg-red-500'"
         />
-        <span class="font-medium truncate">{{ status.site_key }}</span>
+        <router-link
+          v-if="hasAccessLogs"
+          :to="`/sites/${status.project_id}/${status.site_key}`"
+          class="font-medium truncate hover:text-white transition-colors"
+        >
+          {{ status.site_key }}
+        </router-link>
+        <span v-else class="font-medium truncate">{{ status.site_key }}</span>
       </div>
       <div class="flex items-center gap-4 text-sm text-gray-400 shrink-0">
         <span v-if="status.response_ms != null"

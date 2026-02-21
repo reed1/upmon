@@ -43,8 +43,11 @@ async def _query(request: Request, site_key: str, sql: str, params: list):
 
 
 @router.get("/sites")
-async def list_sites(request: Request) -> list[str]:
-    return list(request.app.state.access_logs_config.sites.keys())
+async def list_sites(request: Request) -> list[dict]:
+    return [
+        {"config_key": key, "project_id": site.project_id, "site_key": site.site_key}
+        for key, site in request.app.state.access_logs_config.sites.items()
+    ]
 
 
 @router.get("/sites/{site_key}/logs")

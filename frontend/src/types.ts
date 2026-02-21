@@ -17,3 +17,19 @@ export interface DayEntry {
 }
 
 export type DailySummaryResponse = Record<string, Record<string, DayEntry[]>>;
+
+export interface AccessLogSiteInfo {
+  config_key: string;
+  project_id: string;
+  site_key: string;
+}
+
+export interface AccessLogStats {
+  summary: { columns: string[]; rows: any[][] };
+  status_distribution: { columns: string[]; rows: any[][] };
+}
+
+export interface AccessLogEntries {
+  columns: string[];
+  rows: any[][];
+}
