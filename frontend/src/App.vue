@@ -3,7 +3,10 @@
     <header
       class="flex items-center justify-between px-6 py-4 border-b border-gray-800"
     >
-      <router-link to="/" class="text-xl font-bold hover:text-white transition-colors">
+      <router-link
+        to="/"
+        class="text-xl font-bold hover:text-white transition-colors"
+      >
         upmon
       </router-link>
     </header>

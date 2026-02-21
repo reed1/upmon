@@ -49,7 +49,8 @@ onMounted(async () => {
       (s: AccessLogSiteInfo) =>
         s.project_id === projectId && s.site_key === siteKey,
     );
-    if (!site) throw new Error(`No access log config for ${projectId}/${siteKey}`);
+    if (!site)
+      throw new Error(`No access log config for ${projectId}/${siteKey}`);
 
     const [statsData, entriesData] = await Promise.all([
       fetchAccessLogStats(site.config_key),
@@ -86,9 +87,7 @@ onMounted(async () => {
       {{ error }}
     </div>
 
-    <div v-if="loading" class="text-center text-gray-500 py-20">
-      Loading...
-    </div>
+    <div v-if="loading" class="text-center text-gray-500 py-20">Loading...</div>
 
     <template v-else-if="stats">
       <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -117,13 +116,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div
-        v-if="stats.status_distribution.rows.length"
-        class="mt-6"
-      >
-        <h3 class="text-sm font-semibold text-gray-400 mb-2">
-          Status Codes
-        </h3>
+      <div v-if="stats.status_distribution.rows.length" class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Status Codes</h3>
         <div class="flex flex-wrap gap-2">
           <div
             v-for="row in stats.status_distribution.rows"
@@ -141,13 +135,9 @@ onMounted(async () => {
       </div>
 
       <div v-if="entries && entries.rows.length" class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 mb-2">
-          Recent Logs
-        </h3>
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Recent Logs</h3>
         <div class="overflow-x-auto">
-          <table
-            class="w-full text-sm border-collapse"
-          >
+          <table class="w-full text-sm border-collapse">
             <thead>
               <tr class="text-left text-gray-500 border-b border-gray-800">
                 <th class="py-2 pr-4">Timestamp</th>
@@ -174,14 +164,18 @@ onMounted(async () => {
                 </td>
                 <td class="py-1.5 pr-4">
                   <span
-                    :class="statusColor(cell(row, entries.columns, 'status_code'))"
+                    :class="
+                      statusColor(cell(row, entries.columns, 'status_code'))
+                    "
                     class="font-mono"
                   >
                     {{ cell(row, entries.columns, 'status_code') }}
                   </span>
                 </td>
                 <td class="py-1.5 pr-4 text-right text-gray-400">
-                  {{ formatDuration(cell(row, entries.columns, 'duration_ms')) }}
+                  {{
+                    formatDuration(cell(row, entries.columns, 'duration_ms'))
+                  }}
                 </td>
               </tr>
             </tbody>

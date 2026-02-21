@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { Ref } from 'vue';
-import {
-  fetchStatus,
-  fetchDailySummary,
-  fetchAccessLogSites,
-} from '../api';
+import { fetchStatus, fetchDailySummary, fetchAccessLogSites } from '../api';
 import type {
   SiteStatus,
   DailySummaryResponse,
