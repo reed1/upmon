@@ -1,6 +1,7 @@
 all:
   vars:
     repo_root: "{{ lookup('pipe', 'git rev-parse --show-toplevel') }}"
+    app_dir: /home/{{ ansible_user }}/app/upmon
     app_url: https://upmon.r-mulyadi.com
     upmon_config:
       defaults:

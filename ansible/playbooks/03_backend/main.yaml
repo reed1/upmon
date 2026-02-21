@@ -7,13 +7,13 @@
     - name: Install backend Python dependencies
       ansible.builtin.command:
         cmd: ~/.local/bin/uv sync --frozen
-        chdir: ~/app/upmon/backend
+        chdir: "{{ app_dir }}"
       tags: [push-backend]
 
     - name: Template backend .env.local
       ansible.builtin.template:
         src: backend.env.local.j2
-        dest: ~/app/upmon/backend/.env.local
+        dest: "{{ app_dir }}/backend/.env.local"
         mode: "0600"
       notify: restart backend
       tags: [push-backend]

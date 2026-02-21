@@ -13,14 +13,14 @@
 
     - name: Create collector-bin directory
       ansible.builtin.file:
-        path: ~/app/upmon/collector-bin
+        path: "{{ app_dir }}/collector-bin"
         state: directory
         mode: "0755"
 
     - name: Copy collector binary
       ansible.builtin.copy:
         src: "{{ repo_root }}/collector/target/release/upmon-collector"
-        dest: ~/app/upmon/collector-bin/upmon-collector
+        dest: "{{ app_dir }}/collector-bin/upmon-collector"
         mode: "0755"
       notify: restart collector
       tags: [push-collector]
@@ -28,7 +28,7 @@
     - name: Build config.json
       ansible.builtin.copy:
         content: "{{ upmon_config | combine(lookup('file', '/home/reed/.cache/rlocal/rofi-vscode/site_monitors.generated.json') | from_json) | to_nice_json }}\n"
-        dest: ~/app/upmon/collector-bin/config.json
+        dest: "{{ app_dir }}/collector-bin/config.json"
         mode: "0644"
       notify: restart collector
       tags: [push-collector, push-collector-monitor]
@@ -36,7 +36,7 @@
     - name: Template collector .env.local
       ansible.builtin.template:
         src: collector.env.local.j2
-        dest: ~/app/upmon/collector-bin/.env.local
+        dest: "{{ app_dir }}/collector-bin/.env.local"
         mode: "0600"
       notify: restart collector
       tags: [push-collector]

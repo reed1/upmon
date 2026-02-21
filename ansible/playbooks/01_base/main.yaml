@@ -7,7 +7,7 @@
     - name: Clone/update repo
       ansible.builtin.git:
         repo: git@github.com:reed1/upmon.git
-        dest: ~/app/upmon
+        dest: "{{ app_dir }}"
         version: main
       tags: [push-all]
 

@@ -17,6 +17,6 @@
     - name: Sync frontend dist
       ansible.posix.synchronize:
         src: "{{ repo_root }}/frontend/dist/"
-        dest: ~/app/upmon/frontend-dist/
+        dest: "{{ app_dir }}/frontend-dist/"
         delete: true
       tags: [push-frontend]

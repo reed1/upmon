@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/app/upmon/collector-bin
-ExecStart=%h/app/upmon/collector-bin/upmon-collector
+WorkingDirectory={{ app_dir }}/collector-bin
+ExecStart={{ app_dir }}/collector-bin/upmon-collector
 Environment=RUST_LOG=info
 Restart=on-failure
 RestartSec=5
