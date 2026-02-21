@@ -6,6 +6,11 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 
+[manifest]
+members = [
+    "upmon-backend",
+]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
@@ -764,7 +769,7 @@ wheels = [
 [[package]]
 name = "upmon-backend"
 version = "0.1.0"
-source = { editable = "." }
+source = { editable = "backend" }
 dependencies = [
     { name = "asyncpg" },
     { name = "fastapi", extra = ["standard"] },
