@@ -15,7 +15,7 @@ import sqlite3
 import sys
 
 # {{ ansible_managed }}
-API_KEY = "{{ upmon_agent_api_key }}"
+API_KEYS = {{ upmon_agent_api_keys | tojson }}
 
 MAX_LIMIT = 1000
 DEFAULT_LIMIT = 100
@@ -117,7 +117,7 @@ def main():
 
     args = json.loads(sys.argv[1])
 
-    if args.get("api_key") != API_KEY:
+    if args.get("api_key") not in API_KEYS:
         respond(error="Unauthorized")
 
     db_path = args.get("db_path")

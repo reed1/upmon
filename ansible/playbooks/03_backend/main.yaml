@@ -10,9 +10,19 @@
         chdir: "{{ app_dir }}"
       tags: [push-backend]
 
+    - name: Sync agent API keys
+      ansible.builtin.command:
+        cmd: python3 {{ repo_root }}/ansible/scripts/sync_agent_keys.py
+      delegate_to: localhost
+      run_once: true
+      tags: [push-backend, push-backend-agent]
+
     - name: Build agents.json
+      vars:
+        enriched: "{{ lookup('file', '~/.cache/rlocal/rofi-vscode/upmon_agents.enriched.json') | from_json }}"
+        backend_sites: "{{ enriched.sites | map('dict2items') | map('rejectattr', 'key', 'equalto', 'ssh_host') | map('items2dict') | list }}"
       ansible.builtin.copy:
-        content: "{{ lookup('file', '~/.cache/rlocal/rofi-vscode/upmon_agents.generated.json') | from_json | to_nice_json }}\n"
+        content: "{{ {'sites': backend_sites} | to_nice_json }}\n"
         dest: "{{ app_dir }}/backend/agents.json"
         mode: "0644"
       notify: restart backend
@@ -42,6 +52,16 @@
         enabled: true
         state: started
         scope: user
+
+    - name: Wait for backend /health
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ lookup('pipe', 'rpass port get ' + inventory_hostname + '/upmon-backend') }}/health"
+        method: GET
+        status_code: 200
+      register: health_result
+      until: health_result.status == 200
+      retries: 6
+      delay: 5
 
   handlers:
     - name: reload systemd

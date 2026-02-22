@@ -3,16 +3,18 @@
   gather_facts: no
 
   vars:
-    agent_sites: "{{ (lookup('file', '~/.cache/rlocal/rofi-vscode/upmon_agents.generated.json') | from_json).sites }}"
+    agent_sites: "{{ (lookup('file', '~/.cache/rlocal/rofi-vscode/upmon_agents.enriched.json') | from_json).sites }}"
+    agent_by_dest: >-
+      {{
+        agent_sites
+        | groupby('ssh_dest')
+        | items2dict(key_name=0, value_name=1)
+      }}
 
   tasks:
-    - name: Ensure API key exists for each target
+    - name: Sync agent API keys
       ansible.builtin.command:
-        cmd: rpass gen personal/upmon/apikey/{{ item.ssh_host }}
-      loop: "{{ agent_sites }}"
-      loop_control:
-        label: "{{ item.ssh_host }}"
-      when: lookup('pipe', 'rpass has personal/upmon/apikey/' + item.ssh_host) == '0'
+        cmd: python3 {{ repo_root }}/ansible/scripts/sync_agent_keys.py
       tags: [push-agent]
 
     - name: Create temp dir
@@ -21,25 +23,25 @@
       register: tmpdir
       tags: [push-agent]
 
-    - name: Template agent script per host
+    - name: Template agent script per destination
       ansible.builtin.copy:
         content: "{{ lookup('template', repo_root + '/backend/scripts/upmon-agent/main.py') }}"
-        dest: "{{ tmpdir.path }}/{{ item.ssh_host }}.py"
+        dest: "{{ tmpdir.path }}/{{ item.value[0].ssh_host }}.py"
         mode: "0644"
       vars:
-        upmon_agent_api_key: "{{ lookup('pipe', 'rpass get personal/upmon/apikey/' + item.ssh_host) }}"
-      loop: "{{ agent_sites }}"
+        upmon_agent_api_keys: "{{ item.value | map(attribute='agent_api_key') | list | unique }}"
+      loop: "{{ agent_by_dest | dict2items }}"
       loop_control:
-        label: "{{ item.ssh_host }}"
+        label: "{{ item.key }}"
       tags: [push-agent]
 
     - name: Deploy agent to target
       ansible.builtin.shell: |
-        ssh {{ item.ssh_host }} 'mkdir -p ~/app/upmon-agent' && \
-        scp {{ tmpdir.path }}/{{ item.ssh_host }}.py {{ item.ssh_host }}:~/app/upmon-agent/main.py
-      loop: "{{ agent_sites }}"
+        ssh {{ item.value[0].ssh_host }} 'mkdir -p ~/app/upmon-agent' && \
+        scp {{ tmpdir.path }}/{{ item.value[0].ssh_host }}.py {{ item.value[0].ssh_host }}:~/app/upmon-agent/main.py
+      loop: "{{ agent_by_dest | dict2items }}"
       loop_control:
-        label: "{{ item.ssh_host }}"
+        label: "{{ item.key }}"
       tags: [push-agent]
 
     - name: Remove temp dir
