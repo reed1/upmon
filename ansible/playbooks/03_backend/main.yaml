@@ -10,6 +10,14 @@
         chdir: "{{ app_dir }}"
       tags: [push-backend]
 
+    - name: Build access_logs.json
+      ansible.builtin.copy:
+        content: "{{ lookup('file', '~/.cache/rlocal/rofi-vscode/site_access_logs.generated.json') | from_json | to_nice_json }}\n"
+        dest: "{{ app_dir }}/backend/access_logs.json"
+        mode: "0644"
+      notify: restart backend
+      tags: [push-backend, push-backend-access-logs]
+
     - name: Template backend .env.local
       ansible.builtin.template:
         src: backend.env.local.j2

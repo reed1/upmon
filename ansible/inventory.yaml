@@ -13,3 +13,5 @@ all:
   hosts:
     sgtent:
       ansible_user: reed
+    localhost:
+      ansible_connection: local

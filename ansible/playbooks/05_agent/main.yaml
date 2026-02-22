@@ -1,0 +1,49 @@
+- name: Deploy upmon-agent to target servers
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    agent_sites: "{{ (lookup('file', '~/.cache/rlocal/rofi-vscode/site_access_logs.generated.json') | from_json).sites }}"
+
+  tasks:
+    - name: Ensure API key exists for each target
+      ansible.builtin.command:
+        cmd: rpass gen personal/upmon/apikey/{{ item.ssh_host }}
+      loop: "{{ agent_sites }}"
+      loop_control:
+        label: "{{ item.ssh_host }}"
+      when: lookup('pipe', 'rpass has personal/upmon/apikey/' + item.ssh_host) == '0'
+      tags: [push-agent]
+
+    - name: Create temp dir
+      ansible.builtin.tempfile:
+        state: directory
+      register: tmpdir
+      tags: [push-agent]
+
+    - name: Template agent script per host
+      ansible.builtin.copy:
+        content: "{{ lookup('template', repo_root + '/backend/scripts/upmon-agent/main.py') }}"
+        dest: "{{ tmpdir.path }}/{{ item.ssh_host }}.py"
+        mode: "0644"
+      vars:
+        upmon_agent_api_key: "{{ lookup('pipe', 'rpass get personal/upmon/apikey/' + item.ssh_host) }}"
+      loop: "{{ agent_sites }}"
+      loop_control:
+        label: "{{ item.ssh_host }}"
+      tags: [push-agent]
+
+    - name: Deploy agent to target
+      ansible.builtin.shell: |
+        ssh {{ item.ssh_host }} 'mkdir -p ~/app/upmon-agent' && \
+        scp {{ tmpdir.path }}/{{ item.ssh_host }}.py {{ item.ssh_host }}:~/app/upmon-agent/main.py
+      loop: "{{ agent_sites }}"
+      loop_control:
+        label: "{{ item.ssh_host }}"
+      tags: [push-agent]
+
+    - name: Remove temp dir
+      ansible.builtin.file:
+        path: "{{ tmpdir.path }}"
+        state: absent
+      tags: [push-agent]

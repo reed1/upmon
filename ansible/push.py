@@ -9,7 +9,7 @@ SERVERS = {
     "prod": "sgtent",
 }
 
-TARGETS = ["collector", "collector-monitor", "backend", "frontend"]
+TARGETS = ["collector", "collector-monitor", "backend", "backend-access-logs", "frontend", "agent"]
 
 
 def main():
@@ -19,6 +19,8 @@ def main():
     args = parser.parse_args()
 
     limit = SERVERS[args.server]
+    if "agent" in args.targets:
+        limit += ",localhost"
     tags = ",".join(["push-all"] + [f"push-{t}" for t in args.targets])
 
     print(f"Deploying to {args.server} ({limit}): {' '.join(args.targets)}")
