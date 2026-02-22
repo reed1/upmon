@@ -10,8 +10,11 @@ all:
         expected_status_code: 200
         http_method: GET
       retention_days: 90
+  children:
+    servers:
+      hosts:
+        sgtent:
+          ansible_user: reed
   hosts:
-    sgtent:
-      ansible_user: reed
     localhost:
       ansible_connection: local

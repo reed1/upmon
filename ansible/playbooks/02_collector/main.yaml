@@ -1,5 +1,5 @@
 - name: Deploy Upmon collector
-  hosts: all
+  hosts: servers
   gather_facts: no
   become: no
 
