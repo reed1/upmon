@@ -7,9 +7,8 @@ from fastapi import Depends, FastAPI, Query, Request
 from fastapi.responses import RedirectResponse
 
 from . import db
-from .access_logs.config import AccessLogsConfig
-from .access_logs.routes import router as access_logs_router
-from .access_logs.ssh_session import SSHSessionManager
+from .agent.config import AgentConfig
+from .agent.routes import router as agent_router
 from .auth import require_api_key
 from .config import Settings
 from .models import HourlySummary, MonitorStatus
@@ -18,13 +17,13 @@ from .spa import SPAStaticFiles
 logger = logging.getLogger("upmon_backend")
 
 
-def _load_access_logs_config(path: str) -> AccessLogsConfig | None:
+def _load_agent_config(path: str) -> AgentConfig | None:
     config_path = Path(path)
     if not config_path.exists():
-        logger.info("Access logs config not found at %s, feature disabled", path)
+        logger.info("Agent config not found at %s, feature disabled", path)
         return None
     with open(config_path) as f:
-        return AccessLogsConfig.model_validate(json.load(f))
+        return AgentConfig.model_validate(json.load(f))
 
 
 @asynccontextmanager
@@ -32,16 +31,13 @@ async def lifespan(app: FastAPI):
     app.state.pool = await db.create_pool(app.state.settings.database_url)
     logger.info("database ready")
 
-    access_logs_config = _load_access_logs_config(app.state.settings.access_logs_config)
-    if access_logs_config:
-        app.state.access_logs_config = access_logs_config
-        app.state.ssh_session_manager = SSHSessionManager()
-        logger.info("Access logs enabled with %d site(s)", len(access_logs_config.sites))
+    agent_config = _load_agent_config(app.state.settings.agent_config)
+    if agent_config:
+        app.state.agent_config = agent_config
+        logger.info("Agent enabled with %d site(s)", len(agent_config.sites))
 
     yield
 
-    if hasattr(app.state, "ssh_session_manager"):
-        await app.state.ssh_session_manager.close_all()
     await app.state.pool.close()
 
 
@@ -90,7 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         days = max(1, min(days, 90))
         return await db.get_hourly_summary(request.app.state.pool, project_id, days)
 
-    app.include_router(access_logs_router)
+    app.include_router(agent_router)
 
     app.mount(
         "/frontend",

@@ -3,13 +3,12 @@ import argparse
 import os
 import subprocess
 import glob
-import sys
 
 SERVERS = {
     "prod": "sgtent",
 }
 
-TARGETS = ["collector", "collector-monitor", "backend", "backend-access-logs", "frontend", "agent"]
+TARGETS = ["collector", "collector-monitor", "backend", "backend-agent", "frontend", "agent"]
 
 
 def main():

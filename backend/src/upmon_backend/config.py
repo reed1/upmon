@@ -11,4 +11,4 @@ class Settings(BaseSettings):
     database_url: str
     api_key: str
     frontend_dir: str = "../frontend/dist"
-    access_logs_config: str = "access_logs.json"
+    agent_config: str = "agents.json"

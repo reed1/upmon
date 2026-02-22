@@ -3,7 +3,7 @@
   gather_facts: no
 
   vars:
-    agent_sites: "{{ (lookup('file', '~/.cache/rlocal/rofi-vscode/site_access_logs.generated.json') | from_json).sites }}"
+    agent_sites: "{{ (lookup('file', '~/.cache/rlocal/rofi-vscode/upmon_agents.generated.json') | from_json).sites }}"
 
   tasks:
     - name: Ensure API key exists for each target

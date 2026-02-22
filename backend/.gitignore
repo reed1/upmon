@@ -2,4 +2,4 @@
 __pycache__/
 
 /.env.local
-/access_logs.json
+/agents.json
