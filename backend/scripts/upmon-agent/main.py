@@ -15,7 +15,7 @@ import sqlite3
 import sys
 
 # {{ ansible_managed }}
-API_KEYS = {{ upmon_agent_api_keys | tojson }}
+API_KEYS = {{upmon_agent_api_keys | tojson}}
 
 MAX_LIMIT = 1000
 DEFAULT_LIMIT = 100
