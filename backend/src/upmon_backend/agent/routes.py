@@ -91,7 +91,7 @@ async def get_logs(
         bindings.append(method)
 
     where = f"WHERE {' AND '.join(conditions)}"
-    sql = f"SELECT * FROM access_logs {where} ORDER BY timestamp DESC LIMIT 100"
+    sql = f"SELECT * FROM access_log {where} ORDER BY timestamp DESC LIMIT 100"
 
     return await _query_agent(site, sql, bindings)
 
@@ -116,19 +116,19 @@ async def get_stats(
             ROUND(MIN(duration_ms), 2) AS min_duration_ms,
             ROUND(MAX(duration_ms), 2) AS max_duration_ms,
             SUM(CASE WHEN exception_class IS NOT NULL THEN 1 ELSE 0 END) AS total_exceptions
-        FROM access_logs {where}
+        FROM access_log {where}
     """
 
     dist_sql = f"""
         SELECT status_code, COUNT(*) AS count
-        FROM access_logs {where}
+        FROM access_log {where}
         GROUP BY status_code
         ORDER BY status_code
     """
 
     method_dist_sql = f"""
         SELECT method, COUNT(*) AS count
-        FROM access_logs {where}
+        FROM access_log {where}
         GROUP BY method
         ORDER BY count DESC
     """
@@ -140,7 +140,7 @@ async def get_stats(
             strftime('{bucket_fmt}', timestamp) AS bucket,
             SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END) AS ok,
             SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) AS not_ok
-        FROM access_logs {where}
+        FROM access_log {where}
         GROUP BY bucket
         ORDER BY bucket
     """
