@@ -50,40 +50,19 @@ async def get_logs(
     request: Request,
     project_id: str,
     site_key: str,
-    path: str | None = Query(None),
-    method: str | None = Query(None),
-    status_code: int | None = Query(None),
-    min_duration_ms: float | None = Query(None),
-    has_exception: bool | None = Query(None),
-    limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0),
+    minutes: int | None = Query(None, ge=1),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
     conditions = []
     bindings: list = []
 
-    if path is not None:
-        conditions.append("path = ?")
-        bindings.append(path)
-    if method is not None:
-        conditions.append("method = ?")
-        bindings.append(method)
-    if status_code is not None:
-        conditions.append("status_code = ?")
-        bindings.append(status_code)
-    if min_duration_ms is not None:
-        conditions.append("duration_ms >= ?")
-        bindings.append(min_duration_ms)
-    if has_exception is not None:
-        if has_exception:
-            conditions.append("exception_class IS NOT NULL")
-        else:
-            conditions.append("exception_class IS NULL")
+    if minutes is not None:
+        conditions.append("timestamp >= datetime('now', ?)")
+        bindings.append(f"-{minutes} minutes")
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    sql = f"SELECT * FROM access_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?"
-    bindings.extend([limit, offset])
+    sql = f"SELECT * FROM access_logs {where} ORDER BY timestamp DESC LIMIT 100"
 
     return await _query_agent(site, sql, bindings)
 
@@ -93,16 +72,16 @@ async def get_stats(
     request: Request,
     project_id: str,
     site_key: str,
-    path: str | None = Query(None),
+    minutes: int | None = Query(None, ge=1),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
     conditions = []
     bindings: list = []
 
-    if path is not None:
-        conditions.append("path = ?")
-        bindings.append(path)
+    if minutes is not None:
+        conditions.append("timestamp >= datetime('now', ?)")
+        bindings.append(f"-{minutes} minutes")
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 

@@ -49,11 +49,13 @@ export async function fetchAccessLogSites(): Promise<AccessLogSiteInfo[]> {
 export async function fetchAccessLogStats(
   projectId: string,
   siteKey: string,
+  minutes?: number,
 ): Promise<AccessLogStats> {
   const url = new URL(
     `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/stats`,
     BASE_URL,
   );
+  if (minutes) url.searchParams.set('minutes', String(minutes));
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });
@@ -64,13 +66,13 @@ export async function fetchAccessLogStats(
 export async function fetchAccessLogEntries(
   projectId: string,
   siteKey: string,
-  limit: number = 50,
+  minutes?: number,
 ): Promise<AccessLogEntries> {
   const url = new URL(
     `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/logs`,
     BASE_URL,
   );
-  url.searchParams.set('limit', String(limit));
+  if (minutes) url.searchParams.set('minutes', String(minutes));
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });

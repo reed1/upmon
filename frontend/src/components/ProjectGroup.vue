@@ -17,7 +17,7 @@ defineProps<{
     >
       Project: {{ projectId }}
     </h2>
-    <div class="space-y-3">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <SiteCard
         v-for="site in sites"
         :key="site.site_key"

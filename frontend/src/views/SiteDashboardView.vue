@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { fetchAccessLogStats, fetchAccessLogEntries } from '../api';
@@ -9,18 +9,42 @@ const route = useRoute();
 const projectId = route.params.projectId as string;
 const siteKey = route.params.siteKey as string;
 
+const periods = [
+  { label: '5m', minutes: 5 },
+  { label: '10m', minutes: 10 },
+  { label: '30m', minutes: 30 },
+  { label: '1h', minutes: 1 * 60 },
+  { label: '6h', minutes: 6 * 60 },
+  { label: '12h', minutes: 12 * 60 },
+  { label: '1d', minutes: 24 * 60 },
+  { label: '7d', minutes: 7 * 24 * 60 },
+  { label: '30d', minutes: 30 * 24 * 60 },
+] as const;
+
+const selectedMinutes = ref(30);
+const selectedStatus: Ref<number | null> = ref(null);
 const stats: Ref<AccessLogStats | null> = ref(null);
 const entries: Ref<AccessLogEntries | null> = ref(null);
 const loading = ref(true);
 const error: Ref<string | null> = ref(null);
 
-function colIndex(columns: string[], name: string): number {
-  return columns.indexOf(name);
+function cell(row: any[], columns: string[], name: string): any {
+  const idx = columns.indexOf(name);
+  return idx >= 0 ? row[idx] : null;
 }
 
-function cell(row: any[], columns: string[], name: string): any {
-  const idx = colIndex(columns, name);
-  return idx >= 0 ? row[idx] : null;
+function formatTimestamp(utc: string | null): string {
+  if (!utc) return '-';
+  const d = new Date(utc);
+  const day = String(d.getDate()).padStart(2, '0');
+  const mon = d.toLocaleString('en-US', { month: 'short' });
+  const year = d.getFullYear();
+  const time = d.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  return `${day} ${mon} ${year} ${time}`;
 }
 
 function formatDuration(ms: number | null): string {
@@ -34,11 +58,13 @@ function statusColor(code: number): string {
   return 'text-red-400';
 }
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true;
+  error.value = null;
   try {
     const [statsData, entriesData] = await Promise.all([
-      fetchAccessLogStats(projectId, siteKey),
-      fetchAccessLogEntries(projectId, siteKey, 50),
+      fetchAccessLogStats(projectId, siteKey, selectedMinutes.value),
+      fetchAccessLogEntries(projectId, siteKey, selectedMinutes.value),
     ]);
     stats.value = statsData;
     entries.value = entriesData;
@@ -47,7 +73,10 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+}
+
+watch(selectedMinutes, loadData);
+onMounted(loadData);
 </script>
 
 <template>
@@ -63,6 +92,22 @@ onMounted(async () => {
       {{ projectId }} / {{ siteKey }}
       <span class="text-sm font-normal text-gray-500">access logs</span>
     </h2>
+
+    <div class="mt-4 flex flex-wrap gap-1.5">
+      <button
+        v-for="p in periods"
+        :key="p.minutes"
+        class="px-2.5 py-1 text-xs rounded-md border transition-colors"
+        :class="
+          selectedMinutes === p.minutes
+            ? 'bg-gray-700 border-gray-600 text-gray-100'
+            : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200'
+        "
+        @click="selectedMinutes = p.minutes"
+      >
+        {{ p.label }}
+      </button>
+    </div>
 
     <div
       v-if="error"
@@ -138,7 +183,7 @@ onMounted(async () => {
                 class="border-b border-gray-800/50 hover:bg-gray-900/50"
               >
                 <td class="py-1.5 pr-4 text-gray-400 whitespace-nowrap">
-                  {{ cell(row, entries.columns, 'timestamp') }}
+                  {{ formatTimestamp(cell(row, entries.columns, 'timestamp')) }}
                 </td>
                 <td class="py-1.5 pr-4 font-mono">
                   {{ cell(row, entries.columns, 'method') }}
