@@ -23,10 +23,10 @@
       register: tmpdir
       tags: [push-agent]
 
-    - name: Template agent script per destination
+    - name: Template agent config per destination
       ansible.builtin.copy:
-        content: "{{ lookup('template', repo_root + '/backend/scripts/upmon-agent/main.py') }}"
-        dest: "{{ tmpdir.path }}/{{ item.value[0].ssh_host }}.py"
+        content: "{{ lookup('template', repo_root + '/backend/scripts/upmon-agent/config.json.j2') }}"
+        dest: "{{ tmpdir.path }}/{{ item.value[0].ssh_host }}.json"
         mode: "0644"
       vars:
         upmon_agent_api_keys: "{{ item.value | map(attribute='agent_api_key') | list | unique }}"
@@ -38,7 +38,8 @@
     - name: Deploy agent to target
       ansible.builtin.shell: |
         ssh {{ item.value[0].ssh_host }} 'mkdir -p ~/app/upmon-agent' && \
-        scp {{ tmpdir.path }}/{{ item.value[0].ssh_host }}.py {{ item.value[0].ssh_host }}:~/app/upmon-agent/main.py
+        scp {{ repo_root }}/backend/scripts/upmon-agent/main.py {{ item.value[0].ssh_host }}:~/app/upmon-agent/main.py && \
+        scp {{ tmpdir.path }}/{{ item.value[0].ssh_host }}.json {{ item.value[0].ssh_host }}:~/app/upmon-agent/config.json
       loop: "{{ agent_by_dest | dict2items }}"
       loop_control:
         label: "{{ item.key }}"

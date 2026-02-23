@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Managed by Ansible. Do not edit directly — redeploy to update.
-#
+
 # upmon-agent: Access log query tool.
 # Usage: python3 main.py '<json_args>'
 #
@@ -11,11 +11,13 @@
 #   params     — query-specific parameters (optional, default {})
 
 import json
+import os
 import sqlite3
 import sys
 
-# {{ ansible_managed }}
-API_KEYS = {{upmon_agent_api_keys | tojson}}
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+with open(CONFIG_PATH) as f:
+    API_KEYS = json.load(f)["api_keys"]
 
 MAX_LIMIT = 1000
 DEFAULT_LIMIT = 100
