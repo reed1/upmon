@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ data: Record<string, unknown> }>();
+defineProps<{ data: unknown }>();
 
 function classify(value: unknown): string {
   if (value === null) return 'json-null';
@@ -13,10 +13,18 @@ function format(value: unknown): string {
   if (typeof value === 'string') return `"${value}"`;
   return String(value);
 }
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
 </script>
 
 <template>
-  <div class="font-mono text-xs leading-relaxed">
+  <template v-if="isObject(data)">
     <span class="json-bracket">{</span>
     <div
       v-for="(key, idx) in Object.keys(data)"
@@ -25,13 +33,30 @@ function format(value: unknown): string {
     >
       <span class="json-key">"{{ key }}"</span>
       <span class="json-punctuation">: </span>
-      <span :class="classify(data[key])">{{ format(data[key]) }}</span>
+      <template v-if="isObject(data[key]) || isArray(data[key])">
+        <JsonView :data="data[key]" />
+      </template>
+      <span v-else :class="classify(data[key])">{{ format(data[key]) }}</span>
       <span v-if="idx < Object.keys(data).length - 1" class="json-punctuation"
         >,</span
       >
     </div>
     <span class="json-bracket">}</span>
-  </div>
+  </template>
+
+  <template v-else-if="isArray(data)">
+    <span class="json-bracket">[</span>
+    <div v-for="(item, idx) in data" :key="idx" class="pl-4 break-all">
+      <template v-if="isObject(item) || isArray(item)">
+        <JsonView :data="item" />
+      </template>
+      <span v-else :class="classify(item)">{{ format(item) }}</span>
+      <span v-if="idx < data.length - 1" class="json-punctuation">,</span>
+    </div>
+    <span class="json-bracket">]</span>
+  </template>
+
+  <span v-else :class="classify(data)">{{ format(data) }}</span>
 </template>
 
 <style scoped>
