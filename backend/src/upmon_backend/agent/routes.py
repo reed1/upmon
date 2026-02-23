@@ -64,6 +64,28 @@ async def _query_agent(site, sql: str, bindings: list | None = None) -> dict:
     return data["result"]
 
 
+_JSON_PARSE_COLUMNS = ("query", "body", "files", "traceback")
+
+
+def _parse_json_columns(result: dict, columns: tuple[str, ...] = _JSON_PARSE_COLUMNS) -> dict:
+    col_indices = {i for i, c in enumerate(result["columns"]) if c in columns}
+    if not col_indices:
+        return result
+
+    def _parse_cell(i, v):
+        if i in col_indices and isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, ValueError):
+                pass
+        return v
+
+    return {
+        **result,
+        "rows": [[_parse_cell(i, v) for i, v in enumerate(row)] for row in result["rows"]],
+    }
+
+
 @router.get("/sites")
 async def list_sites(request: Request) -> list[dict]:
     return [{"project_id": site.project_id, "site_key": site.site_key} for site in request.app.state.agent_config.sites]
@@ -93,7 +115,8 @@ async def get_logs(
     where = f"WHERE {' AND '.join(conditions)}"
     sql = f"SELECT * FROM access_log {where} ORDER BY timestamp DESC LIMIT 100"
 
-    return await _query_agent(site, sql, bindings)
+    result = await _query_agent(site, sql, bindings)
+    return _parse_json_columns(result)
 
 
 @router.get("/sites/{project_id}/{site_key}/stats")
