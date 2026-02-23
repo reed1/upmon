@@ -15,7 +15,7 @@
         cmd: python3 {{ repo_root }}/ansible/scripts/sync_agent_keys.py
       delegate_to: localhost
       run_once: true
-      tags: [push-backend, push-backend-agent]
+      tags: [push-backend, push-agent-config]
 
     - name: Build agents.json
       vars:
@@ -26,7 +26,7 @@
         dest: "{{ app_dir }}/backend/agents.json"
         mode: "0644"
       notify: restart backend
-      tags: [push-backend, push-backend-agent]
+      tags: [push-backend, push-agent-config]
 
     - name: Template backend .env.local
       ansible.builtin.template:

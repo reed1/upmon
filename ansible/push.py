@@ -8,7 +8,7 @@ SERVERS = {
     "prod": "sgtent",
 }
 
-TARGETS = ["collector", "collector-monitor", "backend", "backend-agent", "frontend", "agent"]
+TARGETS = ["collector", "collector-monitor", "backend", "agent-config", "frontend", "agent"]
 
 
 def main():
