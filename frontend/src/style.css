@@ -1,1 +1,16 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+.uplot .u-legend .u-series th,
+.uplot .u-legend .u-series td {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+
+.uplot .u-cursor-pt {
+  border-color: #6b7280 !important;
+}
+
+.uplot .u-cursor-x,
+.uplot .u-cursor-y {
+  border-color: #4b5563 !important;
+}

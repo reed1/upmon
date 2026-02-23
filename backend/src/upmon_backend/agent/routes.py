@@ -107,9 +107,27 @@ async def get_stats(
         ORDER BY status_code
     """
 
-    summary, status_distribution = await asyncio.gather(
+    if minutes is not None and minutes < 60:
+        bucket_fmt = "%Y-%m-%dT%H:%M:00"
+    elif minutes is not None and minutes < 1440:
+        bucket_fmt = "%Y-%m-%dT%H:00:00"
+    else:
+        bucket_fmt = "%Y-%m-%dT00:00:00"
+
+    volume_sql = f"""
+        SELECT
+            strftime('{bucket_fmt}', timestamp) AS bucket,
+            SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END) AS ok,
+            SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) AS not_ok
+        FROM access_logs {where}
+        GROUP BY bucket
+        ORDER BY bucket
+    """
+
+    summary, status_distribution, volume = await asyncio.gather(
         _query_agent(site, summary_sql, bindings),
         _query_agent(site, dist_sql, bindings),
+        _query_agent(site, volume_sql, bindings),
     )
 
-    return {"summary": summary, "status_distribution": status_distribution}
+    return {"summary": summary, "status_distribution": status_distribution, "volume": volume}

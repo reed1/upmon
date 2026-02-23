@@ -26,6 +26,7 @@ export interface AccessLogSiteInfo {
 export interface AccessLogStats {
   summary: { columns: string[]; rows: any[][] };
   status_distribution: { columns: string[]; rows: any[][] };
+  volume: { columns: string[]; rows: any[][] };
 }
 
 export interface AccessLogEntries {

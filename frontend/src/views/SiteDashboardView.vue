@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
+import uPlot from 'uplot';
 import { fetchAccessLogStats, fetchAccessLogEntries } from '../api';
 import type { AccessLogStats, AccessLogEntries } from '../types';
 import JsonView from '../components/JsonView.vue';
+import UPlotChart from '../components/UPlotChart.vue';
 
 const route = useRoute();
 const projectId = route.params.projectId as string;
@@ -74,6 +76,56 @@ function rowToObject(row: any[], columns: string[]): Record<string, unknown> {
   for (let i = 0; i < columns.length; i++) obj[columns[i]] = row[i];
   return obj;
 }
+
+const volumeData = computed<uPlot.AlignedData>(() => {
+  if (!stats.value?.volume?.rows?.length) return [[], [], []];
+  const rows = stats.value.volume.rows;
+  const timestamps = rows.map((r) => new Date(r[0] + 'Z').getTime() / 1000);
+  const ok = rows.map((r) => r[1] as number);
+  const notOk = rows.map((r) => r[2] as number);
+  return [timestamps, ok, notOk];
+});
+
+const volumeOpts = computed<Omit<uPlot.Options, 'width'>>(() => {
+  const isMinutes = selectedMinutes.value < 60;
+  const isHours = selectedMinutes.value < 1440;
+  return {
+    height: 250,
+    cursor: { drag: { x: false, y: false } },
+    axes: [
+      {
+        stroke: '#6b7280',
+        grid: { stroke: '#1f2937', width: 1 },
+        ticks: { stroke: '#374151', width: 1 },
+        values: isMinutes
+          ? '{HH}:{mm}'
+          : isHours
+            ? '{MMM} {DD} {HH}:{mm}'
+            : '{MMM} {DD}',
+      },
+      {
+        stroke: '#6b7280',
+        grid: { stroke: '#1f2937', width: 1 },
+        ticks: { stroke: '#374151', width: 1 },
+      },
+    ],
+    series: [
+      {},
+      {
+        label: '2xx',
+        stroke: '#34d399',
+        width: 2,
+        fill: '#34d39918',
+      },
+      {
+        label: 'Errors',
+        stroke: '#f87171',
+        width: 2,
+        fill: '#f8717118',
+      },
+    ],
+  };
+});
 
 async function loadData() {
   expandedRow.value = null;
@@ -178,6 +230,13 @@ onMounted(loadData);
             </template>
             <template v-else>-</template>
           </div>
+        </div>
+      </div>
+
+      <div v-if="volumeData[0].length" class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Request Volume</h3>
+        <div class="bg-gray-900 border border-gray-800 rounded-lg p-3">
+          <UPlotChart :opts="volumeOpts" :data="volumeData" />
         </div>
       </div>
 
