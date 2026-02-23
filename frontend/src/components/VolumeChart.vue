@@ -44,7 +44,7 @@ const opts = computed<Omit<uPlot.Options, 'width'>>(() => {
   const isHours = span < 4320;
   return {
     height: 250,
-    legend: { show: false },
+    legend: { show: true },
     cursor: {
       show: true,
       x: true,
@@ -70,8 +70,20 @@ const opts = computed<Omit<uPlot.Options, 'width'>>(() => {
     ],
     series: [
       {},
-      { label: '2xx', stroke: '#34d399', width: 2 },
-      { label: 'Errors', stroke: '#f87171', width: 2 },
+      {
+        label: '2xx',
+        stroke: '#34d399',
+        width: 2,
+        value: (_u: uPlot, v: number | null) =>
+          v == null ? '—' : v.toLocaleString(),
+      },
+      {
+        label: 'Errors',
+        stroke: '#f87171',
+        width: 2,
+        value: (_u: uPlot, v: number | null) =>
+          v == null ? '—' : v.toLocaleString(),
+      },
     ],
     hooks: {
       setSelect: [onSelect],
@@ -88,3 +100,16 @@ const opts = computed<Omit<uPlot.Options, 'width'>>(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.u-select) {
+  background: rgba(255, 255, 255, 0.07);
+}
+:deep(.u-legend) {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+:deep(.u-legend .u-value) {
+  font-weight: 600;
+}
+</style>
