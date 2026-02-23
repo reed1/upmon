@@ -119,12 +119,13 @@ async function loadData() {
   loading.value = true;
   error.value = null;
   try {
-    const mins = customStart.value ? undefined : selectedMinutes.value;
-    const s = customStart.value ?? undefined;
-    const e = customEnd.value ?? undefined;
+    const start =
+      customStart.value ??
+      new Date(Date.now() - selectedMinutes.value * 60_000).toISOString();
+    const end = customEnd.value ?? undefined;
     const [statsData, entriesData] = await Promise.all([
-      fetchAccessLogStats(projectId, siteKey, mins, s, e),
-      fetchAccessLogEntries(projectId, siteKey, mins, undefined, s, e),
+      fetchAccessLogStats(projectId, siteKey, start, end),
+      fetchAccessLogEntries(projectId, siteKey, start, undefined, end),
     ]);
     stats.value = statsData;
     entries.value = entriesData;
@@ -138,13 +139,16 @@ async function loadData() {
 async function loadEntries() {
   expandedRow.value = null;
   try {
+    const start =
+      customStart.value ??
+      new Date(Date.now() - selectedMinutes.value * 60_000).toISOString();
+    const end = customEnd.value ?? undefined;
     entries.value = await fetchAccessLogEntries(
       projectId,
       siteKey,
-      customStart.value ? undefined : selectedMinutes.value,
+      start,
       selectedStatus.value ?? undefined,
-      customStart.value ?? undefined,
-      customEnd.value ?? undefined,
+      end,
     );
   } catch (e) {
     error.value = (e as Error).message;

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime as dt
+from datetime import datetime as dt, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -18,18 +18,19 @@ router = APIRouter(
 )
 
 
-def _time_conditions(start: str | None, end: str | None, minutes: int | None) -> tuple[list[str], list]:
-    conditions: list[str] = []
-    bindings: list = []
-    if start is not None and end is not None:
-        conditions.append("timestamp >= ?")
-        bindings.append(start)
+def _time_conditions(start: str, end: str | None) -> tuple[list[str], list]:
+    conditions = ["timestamp >= ?"]
+    bindings: list = [start]
+    if end is not None:
         conditions.append("timestamp <= ?")
         bindings.append(end)
-    elif minutes is not None:
-        conditions.append("timestamp >= datetime('now', ?)")
-        bindings.append(f"-{minutes} minutes")
     return conditions, bindings
+
+
+def _span_minutes(start: str, end: str | None) -> float:
+    start_dt = dt.fromisoformat(start)
+    end_dt = dt.fromisoformat(end) if end is not None else dt.now(timezone.utc)
+    return (end_dt - start_dt).total_seconds() / 60
 
 
 def _bucket_format(span_minutes: float) -> str:
@@ -73,20 +74,19 @@ async def get_logs(
     request: Request,
     project_id: str,
     site_key: str,
-    minutes: int | None = Query(None, ge=1),
-    status_code: int | None = Query(None),
-    start: str | None = Query(None),
+    start: str = Query(),
     end: str | None = Query(None),
+    status_code: int | None = Query(None),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
-    conditions, bindings = _time_conditions(start, end, minutes)
+    conditions, bindings = _time_conditions(start, end)
 
     if status_code is not None:
         conditions.append("status_code = ?")
         bindings.append(status_code)
 
-    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    where = f"WHERE {' AND '.join(conditions)}"
     sql = f"SELECT * FROM access_logs {where} ORDER BY timestamp DESC LIMIT 100"
 
     return await _query_agent(site, sql, bindings)
@@ -97,14 +97,13 @@ async def get_stats(
     request: Request,
     project_id: str,
     site_key: str,
-    minutes: int | None = Query(None, ge=1),
-    start: str | None = Query(None),
+    start: str = Query(),
     end: str | None = Query(None),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
-    conditions, bindings = _time_conditions(start, end, minutes)
-    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    conditions, bindings = _time_conditions(start, end)
+    where = f"WHERE {' AND '.join(conditions)}"
 
     summary_sql = f"""
         SELECT
@@ -123,13 +122,7 @@ async def get_stats(
         ORDER BY status_code
     """
 
-    if start is not None and end is not None:
-        span = (dt.fromisoformat(end) - dt.fromisoformat(start)).total_seconds() / 60
-    elif minutes is not None:
-        span = float(minutes)
-    else:
-        span = float("inf")
-    bucket_fmt = _bucket_format(span)
+    bucket_fmt = _bucket_format(_span_minutes(start, end))
 
     volume_sql = f"""
         SELECT
