@@ -60,6 +60,8 @@ const effectiveSpanMinutes = computed(() => {
 function onVolumeSelect(start: string, end: string) {
   customStart.value = start;
   customEnd.value = end;
+  selectedStatus.value = null;
+  selectedMethod.value = null;
   loadData();
 }
 
