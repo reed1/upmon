@@ -283,12 +283,19 @@ onMounted(loadData);
                   class="border-b border-gray-800/50 hover:bg-gray-900/50 cursor-pointer"
                   @click="toggleRow(i)"
                 >
-                  <td class="py-1.5 pr-1 text-gray-600 text-xs w-6">
-                    <span
-                      class="inline-block transition-transform"
+                  <td class="py-1.5 pr-1 w-6">
+                    <svg
+                      class="w-4 h-4 text-gray-400 transition-transform duration-150"
                       :class="expandedRow === i ? 'rotate-90' : ''"
-                      >&#9656;</span
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
                     >
+                      <path
+                        fill-rule="evenodd"
+                        d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
                   </td>
                   <td class="py-1.5 pr-4 text-gray-400 whitespace-nowrap">
                     {{
