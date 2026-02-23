@@ -105,11 +105,23 @@ const opts = computed<Omit<uPlot.Options, 'width'>>(() => {
 :deep(.u-select) {
   background: rgba(255, 255, 255, 0.07);
 }
+:deep(.u-legend .u-series th),
+:deep(.u-legend .u-series td) {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
 :deep(.u-legend) {
   font-size: 0.8rem;
   color: #9ca3af;
 }
 :deep(.u-legend .u-value) {
   font-weight: 600;
+}
+:deep(.u-cursor-pt) {
+  border-color: #6b7280;
+}
+:deep(.u-cursor-x),
+:deep(.u-cursor-y) {
+  border-color: #4b5563;
 }
 </style>
