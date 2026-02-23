@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 
 import httpx
@@ -23,10 +25,12 @@ def _get_site(request: Request, project_id: str, site_key: str):
     raise HTTPException(status_code=404, detail=f"Unknown site: {project_id}/{site_key}")
 
 
-async def _query_agent(site, query: str, params: dict | None = None) -> dict:
-    query_params = {"query": query, "api_key": site.agent_api_key}
-    if params:
-        query_params.update(params)
+async def _query_agent(site, sql: str, bindings: list | None = None) -> dict:
+    query_params = {
+        "api_key": site.agent_api_key,
+        "sql": sql,
+        "bindings": json.dumps(bindings or []),
+    }
     resp = await _client.get(site.agent_url, params=query_params)
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Agent error: {resp.text}")
@@ -55,18 +59,33 @@ async def get_logs(
     offset: int = Query(0, ge=0),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
-    params = {"limit": str(limit), "offset": str(offset)}
+
+    conditions = []
+    bindings: list = []
+
     if path is not None:
-        params["path"] = path
+        conditions.append("path = ?")
+        bindings.append(path)
     if method is not None:
-        params["method"] = method
+        conditions.append("method = ?")
+        bindings.append(method)
     if status_code is not None:
-        params["status_code"] = str(status_code)
+        conditions.append("status_code = ?")
+        bindings.append(status_code)
     if min_duration_ms is not None:
-        params["min_duration_ms"] = str(min_duration_ms)
+        conditions.append("duration_ms >= ?")
+        bindings.append(min_duration_ms)
     if has_exception is not None:
-        params["has_exception"] = str(has_exception).lower()
-    return await _query_agent(site, "logs", params)
+        if has_exception:
+            conditions.append("exception_class IS NOT NULL")
+        else:
+            conditions.append("exception_class IS NULL")
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    sql = f"SELECT * FROM access_logs {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+    bindings.extend([limit, offset])
+
+    return await _query_agent(site, sql, bindings)
 
 
 @router.get("/sites/{project_id}/{site_key}/stats")
@@ -77,7 +96,36 @@ async def get_stats(
     path: str | None = Query(None),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
-    params = {}
+
+    conditions = []
+    bindings: list = []
+
     if path is not None:
-        params["path"] = path
-    return await _query_agent(site, "stats", params)
+        conditions.append("path = ?")
+        bindings.append(path)
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    summary_sql = f"""
+        SELECT
+            COUNT(*) AS total_requests,
+            ROUND(AVG(duration_ms), 2) AS avg_duration_ms,
+            ROUND(MIN(duration_ms), 2) AS min_duration_ms,
+            ROUND(MAX(duration_ms), 2) AS max_duration_ms,
+            SUM(CASE WHEN exception_class IS NOT NULL THEN 1 ELSE 0 END) AS total_exceptions
+        FROM access_logs {where}
+    """
+
+    dist_sql = f"""
+        SELECT status_code, COUNT(*) AS count
+        FROM access_logs {where}
+        GROUP BY status_code
+        ORDER BY status_code
+    """
+
+    summary, status_distribution = await asyncio.gather(
+        _query_agent(site, summary_sql, bindings),
+        _query_agent(site, dist_sql, bindings),
+    )
+
+    return {"summary": summary, "status_distribution": status_distribution}
