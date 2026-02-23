@@ -77,6 +77,7 @@ async def get_logs(
     start: str = Query(),
     end: str | None = Query(None),
     status_code: int | None = Query(None),
+    method: str | None = Query(None),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
@@ -85,6 +86,9 @@ async def get_logs(
     if status_code is not None:
         conditions.append("status_code = ?")
         bindings.append(status_code)
+    if method is not None:
+        conditions.append("method = ?")
+        bindings.append(method)
 
     where = f"WHERE {' AND '.join(conditions)}"
     sql = f"SELECT * FROM access_logs {where} ORDER BY timestamp DESC LIMIT 100"
@@ -122,6 +126,13 @@ async def get_stats(
         ORDER BY status_code
     """
 
+    method_dist_sql = f"""
+        SELECT method, COUNT(*) AS count
+        FROM access_logs {where}
+        GROUP BY method
+        ORDER BY count DESC
+    """
+
     bucket_fmt = _bucket_format(_span_minutes(start, end))
 
     volume_sql = f"""
@@ -134,10 +145,16 @@ async def get_stats(
         ORDER BY bucket
     """
 
-    summary, status_distribution, volume = await asyncio.gather(
+    summary, status_distribution, method_distribution, volume = await asyncio.gather(
         _query_agent(site, summary_sql, bindings),
         _query_agent(site, dist_sql, bindings),
+        _query_agent(site, method_dist_sql, bindings),
         _query_agent(site, volume_sql, bindings),
     )
 
-    return {"summary": summary, "status_distribution": status_distribution, "volume": volume}
+    return {
+        "summary": summary,
+        "status_distribution": status_distribution,
+        "method_distribution": method_distribution,
+        "volume": volume,
+    }

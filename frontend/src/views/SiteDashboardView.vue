@@ -25,6 +25,7 @@ const periods = [
 
 const selectedMinutes = ref(30);
 const selectedStatus: Ref<number | null> = ref(null);
+const selectedMethod: Ref<string | null> = ref(null);
 const customStart: Ref<string | null> = ref(null);
 const customEnd: Ref<string | null> = ref(null);
 const stats: Ref<AccessLogStats | null> = ref(null);
@@ -96,6 +97,10 @@ function toggleStatus(code: number) {
   selectedStatus.value = selectedStatus.value === code ? null : code;
 }
 
+function toggleMethod(method: string) {
+  selectedMethod.value = selectedMethod.value === method ? null : method;
+}
+
 const expandedRow = ref<number | null>(null);
 
 function toggleRow(i: number) {
@@ -149,6 +154,7 @@ async function loadEntries() {
       start,
       selectedStatus.value ?? undefined,
       end,
+      selectedMethod.value ?? undefined,
     );
   } catch (e) {
     error.value = (e as Error).message;
@@ -159,9 +165,11 @@ watch(selectedMinutes, () => {
   customStart.value = null;
   customEnd.value = null;
   selectedStatus.value = null;
+  selectedMethod.value = null;
   loadData();
 });
 watch(selectedStatus, loadEntries);
+watch(selectedMethod, loadEntries);
 onMounted(loadData);
 </script>
 
@@ -271,6 +279,30 @@ onMounted(loadData);
             @click="toggleStatus(row[0])"
           >
             <span :class="statusColor(row[0])" class="font-mono font-medium">
+              {{ row[0] }}
+            </span>
+            <span class="text-gray-400 ml-2">
+              {{ row[1]?.toLocaleString() }}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="stats.method_distribution.rows.length" class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Request Method</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="row in stats.method_distribution.rows"
+            :key="row[0]"
+            class="rounded px-3 py-1.5 text-sm border transition-colors cursor-pointer"
+            :class="
+              selectedMethod === row[0]
+                ? 'bg-gray-700 border-gray-500'
+                : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+            "
+            @click="toggleMethod(row[0])"
+          >
+            <span class="font-mono font-medium">
               {{ row[0] }}
             </span>
             <span class="text-gray-400 ml-2">

@@ -71,6 +71,7 @@ export async function fetchAccessLogEntries(
   start: string,
   statusCode?: number,
   end?: string,
+  method?: string,
 ): Promise<AccessLogEntries> {
   const url = new URL(
     `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/logs`,
@@ -80,6 +81,7 @@ export async function fetchAccessLogEntries(
   if (end) url.searchParams.set('end', end);
   if (statusCode != null)
     url.searchParams.set('status_code', String(statusCode));
+  if (method) url.searchParams.set('method', method);
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });
