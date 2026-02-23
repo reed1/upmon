@@ -2,11 +2,10 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
-import uPlot from 'uplot';
 import { fetchAccessLogStats, fetchAccessLogEntries } from '../api';
 import type { AccessLogStats, AccessLogEntries } from '../types';
 import JsonView from '../components/JsonView.vue';
-import UPlotChart from '../components/UPlotChart.vue';
+import VolumeChart from '../components/VolumeChart.vue';
 
 const route = useRoute();
 const projectId = route.params.projectId as string;
@@ -26,10 +25,42 @@ const periods = [
 
 const selectedMinutes = ref(30);
 const selectedStatus: Ref<number | null> = ref(null);
+const customStart: Ref<string | null> = ref(null);
+const customEnd: Ref<string | null> = ref(null);
 const stats: Ref<AccessLogStats | null> = ref(null);
 const entries: Ref<AccessLogEntries | null> = ref(null);
 const loading = ref(true);
 const error: Ref<string | null> = ref(null);
+
+const customRangeLabel = computed(() => {
+  if (!customStart.value || !customEnd.value) return null;
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    const mon = d.toLocaleString('en-US', { month: 'short' });
+    const day = d.getDate();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${mon} ${day} ${hh}:${mm}`;
+  };
+  return `${fmt(customStart.value)} \u2013 ${fmt(customEnd.value)}`;
+});
+
+const effectiveSpanMinutes = computed(() => {
+  if (customStart.value && customEnd.value) {
+    return (
+      (new Date(customEnd.value).getTime() -
+        new Date(customStart.value).getTime()) /
+      60000
+    );
+  }
+  return selectedMinutes.value;
+});
+
+function onVolumeSelect(start: string, end: string) {
+  customStart.value = start;
+  customEnd.value = end;
+  loadData();
+}
 
 function cell(row: any[], columns: string[], name: string): any {
   const idx = columns.indexOf(name);
@@ -77,63 +108,23 @@ function rowToObject(row: any[], columns: string[]): Record<string, unknown> {
   return obj;
 }
 
-const volumeData = computed<uPlot.AlignedData>(() => {
-  if (!stats.value?.volume?.rows?.length) return [[], [], []];
-  const rows = stats.value.volume.rows;
-  const timestamps = rows.map((r) => new Date(r[0] + 'Z').getTime() / 1000);
-  const ok = rows.map((r) => r[1] as number);
-  const notOk = rows.map((r) => r[2] as number);
-  return [timestamps, ok, notOk];
-});
-
-const volumeOpts = computed<Omit<uPlot.Options, 'width'>>(() => {
-  const isMinutes = selectedMinutes.value < 60;
-  const isHours = selectedMinutes.value < 1440;
-  return {
-    height: 250,
-    legend: { show: false },
-    cursor: { show: false },
-    axes: [
-      {
-        stroke: '#6b7280',
-        grid: { stroke: '#1f2937', width: 1 },
-        ticks: { stroke: '#374151', width: 1 },
-        values: isMinutes
-          ? '{HH}:{mm}'
-          : isHours
-            ? '{MMM} {DD} {HH}:{mm}'
-            : '{MMM} {DD}',
-      },
-      {
-        stroke: '#6b7280',
-        grid: { stroke: '#1f2937', width: 1 },
-        ticks: { stroke: '#374151', width: 1 },
-      },
-    ],
-    series: [
-      {},
-      {
-        label: '2xx',
-        stroke: '#34d399',
-        width: 2,
-      },
-      {
-        label: 'Errors',
-        stroke: '#f87171',
-        width: 2,
-      },
-    ],
-  };
-});
+function clearCustomRange() {
+  customStart.value = null;
+  customEnd.value = null;
+  loadData();
+}
 
 async function loadData() {
   expandedRow.value = null;
   loading.value = true;
   error.value = null;
   try {
+    const mins = customStart.value ? undefined : selectedMinutes.value;
+    const s = customStart.value ?? undefined;
+    const e = customEnd.value ?? undefined;
     const [statsData, entriesData] = await Promise.all([
-      fetchAccessLogStats(projectId, siteKey, selectedMinutes.value),
-      fetchAccessLogEntries(projectId, siteKey, selectedMinutes.value),
+      fetchAccessLogStats(projectId, siteKey, mins, s, e),
+      fetchAccessLogEntries(projectId, siteKey, mins, undefined, s, e),
     ]);
     stats.value = statsData;
     entries.value = entriesData;
@@ -150,8 +141,10 @@ async function loadEntries() {
     entries.value = await fetchAccessLogEntries(
       projectId,
       siteKey,
-      selectedMinutes.value,
+      customStart.value ? undefined : selectedMinutes.value,
       selectedStatus.value ?? undefined,
+      customStart.value ?? undefined,
+      customEnd.value ?? undefined,
     );
   } catch (e) {
     error.value = (e as Error).message;
@@ -159,6 +152,8 @@ async function loadEntries() {
 }
 
 watch(selectedMinutes, () => {
+  customStart.value = null;
+  customEnd.value = null;
   selectedStatus.value = null;
   loadData();
 });
@@ -193,6 +188,23 @@ onMounted(loadData);
         @click="selectedMinutes = p.minutes"
       >
         {{ p.label }}
+      </button>
+    </div>
+
+    <div
+      v-if="customRangeLabel"
+      class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md bg-blue-900/50 border border-blue-700 text-blue-200"
+    >
+      <span>{{ customRangeLabel }}</span>
+      <button
+        class="ml-1 hover:text-white transition-colors cursor-pointer"
+        @click="clearCustomRange"
+      >
+        <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+          />
+        </svg>
       </button>
     </div>
 
@@ -232,12 +244,13 @@ onMounted(loadData);
         </div>
       </div>
 
-      <div v-if="volumeData[0].length" class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 mb-2">Request Volume</h3>
-        <div class="bg-gray-900 border border-gray-800 rounded-lg p-3">
-          <UPlotChart :opts="volumeOpts" :data="volumeData" />
-        </div>
-      </div>
+      <VolumeChart
+        v-if="stats.volume?.rows?.length"
+        class="mt-6"
+        :rows="stats.volume.rows"
+        :span-minutes="effectiveSpanMinutes"
+        @select="onVolumeSelect"
+      />
 
       <div v-if="stats.status_distribution.rows.length" class="mt-6">
         <h3 class="text-sm font-semibold text-gray-400 mb-2">Status Codes</h3>

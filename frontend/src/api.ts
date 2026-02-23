@@ -50,12 +50,19 @@ export async function fetchAccessLogStats(
   projectId: string,
   siteKey: string,
   minutes?: number,
+  start?: string,
+  end?: string,
 ): Promise<AccessLogStats> {
   const url = new URL(
     `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/stats`,
     BASE_URL,
   );
-  if (minutes) url.searchParams.set('minutes', String(minutes));
+  if (start && end) {
+    url.searchParams.set('start', start);
+    url.searchParams.set('end', end);
+  } else if (minutes) {
+    url.searchParams.set('minutes', String(minutes));
+  }
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });
@@ -68,12 +75,19 @@ export async function fetchAccessLogEntries(
   siteKey: string,
   minutes?: number,
   statusCode?: number,
+  start?: string,
+  end?: string,
 ): Promise<AccessLogEntries> {
   const url = new URL(
     `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/logs`,
     BASE_URL,
   );
-  if (minutes) url.searchParams.set('minutes', String(minutes));
+  if (start && end) {
+    url.searchParams.set('start', start);
+    url.searchParams.set('end', end);
+  } else if (minutes) {
+    url.searchParams.set('minutes', String(minutes));
+  }
   if (statusCode != null)
     url.searchParams.set('status_code', String(statusCode));
   const res = await fetch(url, {

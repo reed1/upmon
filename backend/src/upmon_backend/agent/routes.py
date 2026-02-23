@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime as dt
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -15,6 +16,28 @@ router = APIRouter(
     prefix="/api/v1/access-logs",
     dependencies=[Depends(require_api_key)],
 )
+
+
+def _time_conditions(start: str | None, end: str | None, minutes: int | None) -> tuple[list[str], list]:
+    conditions: list[str] = []
+    bindings: list = []
+    if start is not None and end is not None:
+        conditions.append("timestamp >= ?")
+        bindings.append(start)
+        conditions.append("timestamp <= ?")
+        bindings.append(end)
+    elif minutes is not None:
+        conditions.append("timestamp >= datetime('now', ?)")
+        bindings.append(f"-{minutes} minutes")
+    return conditions, bindings
+
+
+def _bucket_format(span_minutes: float) -> str:
+    if span_minutes < 180:
+        return "%Y-%m-%dT%H:%M:00"
+    if span_minutes < 4320:
+        return "%Y-%m-%dT%H:00:00"
+    return "%Y-%m-%dT00:00:00"
 
 
 def _get_site(request: Request, project_id: str, site_key: str):
@@ -52,15 +75,12 @@ async def get_logs(
     site_key: str,
     minutes: int | None = Query(None, ge=1),
     status_code: int | None = Query(None),
+    start: str | None = Query(None),
+    end: str | None = Query(None),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
-    conditions = []
-    bindings: list = []
-
-    if minutes is not None:
-        conditions.append("timestamp >= datetime('now', ?)")
-        bindings.append(f"-{minutes} minutes")
+    conditions, bindings = _time_conditions(start, end, minutes)
 
     if status_code is not None:
         conditions.append("status_code = ?")
@@ -78,16 +98,12 @@ async def get_stats(
     project_id: str,
     site_key: str,
     minutes: int | None = Query(None, ge=1),
+    start: str | None = Query(None),
+    end: str | None = Query(None),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
-    conditions = []
-    bindings: list = []
-
-    if minutes is not None:
-        conditions.append("timestamp >= datetime('now', ?)")
-        bindings.append(f"-{minutes} minutes")
-
+    conditions, bindings = _time_conditions(start, end, minutes)
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     summary_sql = f"""
@@ -107,12 +123,13 @@ async def get_stats(
         ORDER BY status_code
     """
 
-    if minutes is not None and minutes < 60:
-        bucket_fmt = "%Y-%m-%dT%H:%M:00"
-    elif minutes is not None and minutes < 1440:
-        bucket_fmt = "%Y-%m-%dT%H:00:00"
+    if start is not None and end is not None:
+        span = (dt.fromisoformat(end) - dt.fromisoformat(start)).total_seconds() / 60
+    elif minutes is not None:
+        span = float(minutes)
     else:
-        bucket_fmt = "%Y-%m-%dT00:00:00"
+        span = float("inf")
+    bucket_fmt = _bucket_format(span)
 
     volume_sql = f"""
         SELECT
