@@ -4,6 +4,7 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { fetchAccessLogStats, fetchAccessLogEntries } from '../api';
 import type { AccessLogStats, AccessLogEntries } from '../types';
+import JsonView from '../components/JsonView.vue';
 
 const route = useRoute();
 const projectId = route.params.projectId as string;
@@ -68,13 +69,14 @@ function toggleRow(i: number) {
   expandedRow.value = expandedRow.value === i ? null : i;
 }
 
-function rowToJson(row: any[], columns: string[]): string {
-  const obj: Record<string, any> = {};
+function rowToObject(row: any[], columns: string[]): Record<string, unknown> {
+  const obj: Record<string, unknown> = {};
   for (let i = 0; i < columns.length; i++) obj[columns[i]] = row[i];
-  return JSON.stringify(obj, null, 2);
+  return obj;
 }
 
 async function loadData() {
+  expandedRow.value = null;
   loading.value = true;
   error.value = null;
   try {
@@ -258,11 +260,11 @@ onMounted(loadData);
                   </td>
                 </tr>
                 <tr v-if="expandedRow === i">
-                  <td colspan="6" class="p-0">
-                    <pre
-                      class="px-4 py-3 bg-gray-950 text-xs text-gray-300 font-mono overflow-x-auto border-b border-gray-800"
-                      >{{ rowToJson(row, entries.columns) }}</pre
-                    >
+                  <td
+                    colspan="6"
+                    class="px-4 py-3 bg-gray-950 border-b border-gray-800"
+                  >
+                    <JsonView :data="rowToObject(row, entries.columns)" />
                   </td>
                 </tr>
               </template>
