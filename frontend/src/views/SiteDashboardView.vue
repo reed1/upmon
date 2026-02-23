@@ -91,7 +91,8 @@ const volumeOpts = computed<Omit<uPlot.Options, 'width'>>(() => {
   const isHours = selectedMinutes.value < 1440;
   return {
     height: 250,
-    cursor: { drag: { x: false, y: false } },
+    legend: { show: false },
+    cursor: { show: false },
     axes: [
       {
         stroke: '#6b7280',
@@ -115,13 +116,11 @@ const volumeOpts = computed<Omit<uPlot.Options, 'width'>>(() => {
         label: '2xx',
         stroke: '#34d399',
         width: 2,
-        fill: '#34d39918',
       },
       {
         label: 'Errors',
         stroke: '#f87171',
         width: 2,
-        fill: '#f8717118',
       },
     ],
   };
