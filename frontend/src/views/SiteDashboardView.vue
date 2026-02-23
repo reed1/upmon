@@ -58,6 +58,22 @@ function statusColor(code: number): string {
   return 'text-red-400';
 }
 
+function toggleStatus(code: number) {
+  selectedStatus.value = selectedStatus.value === code ? null : code;
+}
+
+const expandedRow = ref<number | null>(null);
+
+function toggleRow(i: number) {
+  expandedRow.value = expandedRow.value === i ? null : i;
+}
+
+function rowToJson(row: any[], columns: string[]): string {
+  const obj: Record<string, any> = {};
+  for (let i = 0; i < columns.length; i++) obj[columns[i]] = row[i];
+  return JSON.stringify(obj, null, 2);
+}
+
 async function loadData() {
   loading.value = true;
   error.value = null;
@@ -75,7 +91,25 @@ async function loadData() {
   }
 }
 
-watch(selectedMinutes, loadData);
+async function loadEntries() {
+  expandedRow.value = null;
+  try {
+    entries.value = await fetchAccessLogEntries(
+      projectId,
+      siteKey,
+      selectedMinutes.value,
+      selectedStatus.value ?? undefined,
+    );
+  } catch (e) {
+    error.value = (e as Error).message;
+  }
+}
+
+watch(selectedMinutes, () => {
+  selectedStatus.value = null;
+  loadData();
+});
+watch(selectedStatus, loadEntries);
 onMounted(loadData);
 </script>
 
@@ -148,10 +182,16 @@ onMounted(loadData);
       <div v-if="stats.status_distribution.rows.length" class="mt-6">
         <h3 class="text-sm font-semibold text-gray-400 mb-2">Status Codes</h3>
         <div class="flex flex-wrap gap-2">
-          <div
+          <button
             v-for="row in stats.status_distribution.rows"
             :key="row[0]"
-            class="bg-gray-900 border border-gray-800 rounded px-3 py-1.5 text-sm"
+            class="rounded px-3 py-1.5 text-sm border transition-colors cursor-pointer"
+            :class="
+              selectedStatus === row[0]
+                ? 'bg-gray-700 border-gray-500'
+                : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+            "
+            @click="toggleStatus(row[0])"
           >
             <span :class="statusColor(row[0])" class="font-mono font-medium">
               {{ row[0] }}
@@ -159,7 +199,7 @@ onMounted(loadData);
             <span class="text-gray-400 ml-2">
               {{ row[1]?.toLocaleString() }}
             </span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -169,6 +209,7 @@ onMounted(loadData);
           <table class="w-full text-sm border-collapse">
             <thead>
               <tr class="text-left text-gray-500 border-b border-gray-800">
+                <th class="py-2 w-6"></th>
                 <th class="py-2 pr-4">Timestamp</th>
                 <th class="py-2 pr-4">Method</th>
                 <th class="py-2 pr-4">Path</th>
@@ -177,36 +218,54 @@ onMounted(loadData);
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="(row, i) in entries.rows"
-                :key="i"
-                class="border-b border-gray-800/50 hover:bg-gray-900/50"
-              >
-                <td class="py-1.5 pr-4 text-gray-400 whitespace-nowrap">
-                  {{ formatTimestamp(cell(row, entries.columns, 'timestamp')) }}
-                </td>
-                <td class="py-1.5 pr-4 font-mono">
-                  {{ cell(row, entries.columns, 'method') }}
-                </td>
-                <td class="py-1.5 pr-4 text-gray-300 max-w-xs truncate">
-                  {{ cell(row, entries.columns, 'path') }}
-                </td>
-                <td class="py-1.5 pr-4">
-                  <span
-                    :class="
-                      statusColor(cell(row, entries.columns, 'status_code'))
-                    "
-                    class="font-mono"
-                  >
-                    {{ cell(row, entries.columns, 'status_code') }}
-                  </span>
-                </td>
-                <td class="py-1.5 pr-4 text-right text-gray-400">
-                  {{
-                    formatDuration(cell(row, entries.columns, 'duration_ms'))
-                  }}
-                </td>
-              </tr>
+              <template v-for="(row, i) in entries.rows" :key="i">
+                <tr
+                  class="border-b border-gray-800/50 hover:bg-gray-900/50 cursor-pointer"
+                  @click="toggleRow(i)"
+                >
+                  <td class="py-1.5 pr-1 text-gray-600 text-xs w-6">
+                    <span
+                      class="inline-block transition-transform"
+                      :class="expandedRow === i ? 'rotate-90' : ''"
+                      >&#9656;</span
+                    >
+                  </td>
+                  <td class="py-1.5 pr-4 text-gray-400 whitespace-nowrap">
+                    {{
+                      formatTimestamp(cell(row, entries.columns, 'timestamp'))
+                    }}
+                  </td>
+                  <td class="py-1.5 pr-4 font-mono">
+                    {{ cell(row, entries.columns, 'method') }}
+                  </td>
+                  <td class="py-1.5 pr-4 text-gray-300 max-w-xs truncate">
+                    {{ cell(row, entries.columns, 'path') }}
+                  </td>
+                  <td class="py-1.5 pr-4">
+                    <span
+                      :class="
+                        statusColor(cell(row, entries.columns, 'status_code'))
+                      "
+                      class="font-mono"
+                    >
+                      {{ cell(row, entries.columns, 'status_code') }}
+                    </span>
+                  </td>
+                  <td class="py-1.5 pr-4 text-right text-gray-400">
+                    {{
+                      formatDuration(cell(row, entries.columns, 'duration_ms'))
+                    }}
+                  </td>
+                </tr>
+                <tr v-if="expandedRow === i">
+                  <td colspan="6" class="p-0">
+                    <pre
+                      class="px-4 py-3 bg-gray-950 text-xs text-gray-300 font-mono overflow-x-auto border-b border-gray-800"
+                      >{{ rowToJson(row, entries.columns) }}</pre
+                    >
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
         </div>

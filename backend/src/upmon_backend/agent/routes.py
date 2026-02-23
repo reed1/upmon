@@ -51,6 +51,7 @@ async def get_logs(
     project_id: str,
     site_key: str,
     minutes: int | None = Query(None, ge=1),
+    status_code: int | None = Query(None),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
@@ -60,6 +61,10 @@ async def get_logs(
     if minutes is not None:
         conditions.append("timestamp >= datetime('now', ?)")
         bindings.append(f"-{minutes} minutes")
+
+    if status_code is not None:
+        conditions.append("status_code = ?")
+        bindings.append(status_code)
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     sql = f"SELECT * FROM access_logs {where} ORDER BY timestamp DESC LIMIT 100"

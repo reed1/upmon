@@ -67,12 +67,15 @@ export async function fetchAccessLogEntries(
   projectId: string,
   siteKey: string,
   minutes?: number,
+  statusCode?: number,
 ): Promise<AccessLogEntries> {
   const url = new URL(
     `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/logs`,
     BASE_URL,
   );
   if (minutes) url.searchParams.set('minutes', String(minutes));
+  if (statusCode != null)
+    url.searchParams.set('status_code', String(statusCode));
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });
