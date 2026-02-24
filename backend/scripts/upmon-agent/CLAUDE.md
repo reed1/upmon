@@ -43,11 +43,11 @@ CREATE TABLE access_log (
   files TEXT,                     -- JSON string
   exception_class TEXT,
   exception_message TEXT,
-  exception_is_expected INTEGER,  -- 0 or 1
-  exception_traceback TEXT        -- JSON string
+  exception_is_unexpected INTEGER,  -- NULL = no exception, 0 = expected, 1 = unexpected
+  exception_traceback TEXT          -- JSON string
 );
 
 CREATE INDEX idx_access_log_epoch_sec ON access_log (epoch_sec);
 CREATE INDEX idx_access_log_unexpected_exceptions
-  ON access_log (exception_class) WHERE exception_is_expected = 0;
+  ON access_log (epoch_sec) WHERE exception_is_unexpected = 1;
 ```

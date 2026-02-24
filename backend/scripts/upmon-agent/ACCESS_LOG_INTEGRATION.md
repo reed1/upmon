@@ -42,14 +42,14 @@ CREATE TABLE IF NOT EXISTS access_log (
     files TEXT,                          -- JSON string of [{fieldname, originalname, mimetype, size}]
     exception_class TEXT,
     exception_message TEXT,
-    exception_is_expected INTEGER,       -- 0 or 1
+    exception_is_unexpected INTEGER,     -- NULL = no exception, 0 = expected, 1 = unexpected
     exception_traceback TEXT             -- JSON string
 );
 
 CREATE INDEX IF NOT EXISTS idx_access_log_epoch_sec
     ON access_log (epoch_sec);
 CREATE INDEX IF NOT EXISTS idx_access_log_unexpected_exceptions
-    ON access_log (exception_is_expected) WHERE exception_class IS NOT NULL;
+    ON access_log (epoch_sec) WHERE exception_is_unexpected = 1;
 ```
 
 ## 3. Request Logging Middleware / Interceptor
@@ -79,12 +79,12 @@ on_request(req):
         exception = null
     catch error:
         status_code = error.status or 500
-        is_expected = error is a known HTTP exception
+        is_unexpected = error is NOT a known HTTP exception
         exception = {
             class:     error.class_name,
             message:   error.message,
-            is_expected: is_expected,
-            traceback: is_expected ? null : error.stack_frames
+            is_unexpected: is_unexpected,
+            traceback: is_unexpected ? error.stack_frames : null
         }
         re-raise error
 
