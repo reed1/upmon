@@ -40,8 +40,7 @@ function onSelect(u: uPlot) {
 
 const opts = computed<Omit<uPlot.Options, 'width'>>(() => {
   const span = props.spanMinutes;
-  const isMinutes = span < 180;
-  const isHours = span < 4320;
+  const threeDays = 3 * 24 * 60; // minutes
   return {
     height: 250,
     legend: { show: true },
@@ -56,11 +55,7 @@ const opts = computed<Omit<uPlot.Options, 'width'>>(() => {
         stroke: '#6b7280',
         grid: { stroke: '#1f2937', width: 1 },
         ticks: { stroke: '#374151', width: 1 },
-        values: isMinutes
-          ? '{HH}:{mm}'
-          : isHours
-            ? '{MMM} {DD} {HH}:{mm}'
-            : '{MMM} {DD}',
+        values: span < threeDays ? '{HH}:{mm}' : '{MMM} {DD}',
       },
       {
         stroke: '#6b7280',

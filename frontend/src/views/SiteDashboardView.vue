@@ -26,15 +26,15 @@ const periods = [
 const selectedMinutes = ref(30);
 const selectedStatus: Ref<number | null> = ref(null);
 const selectedMethod: Ref<string | null> = ref(null);
-const customStart: Ref<string | null> = ref(null);
-const customEnd: Ref<string | null> = ref(null);
+const start = ref(new Date(Date.now() - 30 * 60_000).toISOString());
+const end: Ref<string | null> = ref(null);
 const stats: Ref<AccessLogStats | null> = ref(null);
 const entries: Ref<AccessLogEntries | null> = ref(null);
 const loading = ref(true);
 const error: Ref<string | null> = ref(null);
 
-const customRangeLabel = computed(() => {
-  if (!customStart.value || !customEnd.value) return null;
+const rangeLabel = computed(() => {
+  if (!end.value) return null;
   const fmt = (iso: string) => {
     const d = new Date(iso);
     const mon = d.toLocaleString('en-US', { month: 'short' });
@@ -43,23 +43,30 @@ const customRangeLabel = computed(() => {
     const mm = String(d.getMinutes()).padStart(2, '0');
     return `${mon} ${day} ${hh}:${mm}`;
   };
-  return `${fmt(customStart.value)} \u2013 ${fmt(customEnd.value)}`;
+  return `${fmt(start.value)} \u2013 ${fmt(end.value)}`;
 });
 
 const effectiveSpanMinutes = computed(() => {
-  if (customStart.value && customEnd.value) {
+  if (end.value) {
     return (
-      (new Date(customEnd.value).getTime() -
-        new Date(customStart.value).getTime()) /
-      60000
+      (new Date(end.value).getTime() - new Date(start.value).getTime()) / 60000
     );
   }
   return selectedMinutes.value;
 });
 
-function onVolumeSelect(start: string, end: string) {
-  customStart.value = start;
-  customEnd.value = end;
+function selectPeriod(minutes: number) {
+  selectedMinutes.value = minutes;
+  start.value = new Date(Date.now() - minutes * 60_000).toISOString();
+  end.value = null;
+  selectedStatus.value = null;
+  selectedMethod.value = null;
+  loadData();
+}
+
+function onRangeSelect(rangeStart: string, rangeEnd: string) {
+  start.value = rangeStart;
+  end.value = rangeEnd;
   selectedStatus.value = null;
   selectedMethod.value = null;
   loadData();
@@ -115,9 +122,11 @@ function rowToObject(row: any[], columns: string[]): Record<string, unknown> {
   return obj;
 }
 
-function clearCustomRange() {
-  customStart.value = null;
-  customEnd.value = null;
+function clearRange() {
+  start.value = new Date(
+    Date.now() - selectedMinutes.value * 60_000,
+  ).toISOString();
+  end.value = null;
   loadData();
 }
 
@@ -126,13 +135,20 @@ async function loadData() {
   loading.value = true;
   error.value = null;
   try {
-    const start =
-      customStart.value ??
-      new Date(Date.now() - selectedMinutes.value * 60_000).toISOString();
-    const end = customEnd.value ?? undefined;
     const [statsData, entriesData] = await Promise.all([
-      fetchAccessLogStats(projectId, siteKey, start, end),
-      fetchAccessLogEntries(projectId, siteKey, start, undefined, end),
+      fetchAccessLogStats(
+        projectId,
+        siteKey,
+        start.value,
+        end.value ?? undefined,
+      ),
+      fetchAccessLogEntries(
+        projectId,
+        siteKey,
+        start.value,
+        undefined,
+        end.value ?? undefined,
+      ),
     ]);
     stats.value = statsData;
     entries.value = entriesData;
@@ -146,16 +162,12 @@ async function loadData() {
 async function loadEntries() {
   expandedRow.value = null;
   try {
-    const start =
-      customStart.value ??
-      new Date(Date.now() - selectedMinutes.value * 60_000).toISOString();
-    const end = customEnd.value ?? undefined;
     entries.value = await fetchAccessLogEntries(
       projectId,
       siteKey,
-      start,
+      start.value,
       selectedStatus.value ?? undefined,
-      end,
+      end.value ?? undefined,
       selectedMethod.value ?? undefined,
     );
   } catch (e) {
@@ -163,13 +175,6 @@ async function loadEntries() {
   }
 }
 
-watch(selectedMinutes, () => {
-  customStart.value = null;
-  customEnd.value = null;
-  selectedStatus.value = null;
-  selectedMethod.value = null;
-  loadData();
-});
 watch(selectedStatus, loadEntries);
 watch(selectedMethod, loadEntries);
 onMounted(loadData);
@@ -199,20 +204,20 @@ onMounted(loadData);
             ? 'bg-gray-700 border-gray-600 text-gray-100'
             : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200'
         "
-        @click="selectedMinutes = p.minutes"
+        @click="selectPeriod(p.minutes)"
       >
         {{ p.label }}
       </button>
     </div>
 
     <div
-      v-if="customRangeLabel"
+      v-if="rangeLabel"
       class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md bg-blue-900/50 border border-blue-700 text-blue-200"
     >
-      <span>{{ customRangeLabel }}</span>
+      <span>{{ rangeLabel }}</span>
       <button
         class="ml-1 hover:text-white transition-colors cursor-pointer"
-        @click="clearCustomRange"
+        @click="clearRange"
       >
         <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
           <path
@@ -263,7 +268,7 @@ onMounted(loadData);
         class="mt-6"
         :rows="stats.volume.rows"
         :span-minutes="effectiveSpanMinutes"
-        @select="onVolumeSelect"
+        @select="onRangeSelect"
       />
 
       <div v-if="stats.status_distribution.rows.length" class="mt-6">
