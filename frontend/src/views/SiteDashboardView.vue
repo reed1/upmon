@@ -59,18 +59,38 @@ function selectPeriod(minutes: number) {
   selectedMinutes.value = minutes;
   start.value = new Date(Date.now() - minutes * 60_000).toISOString();
   end.value = null;
-  selectedStatus.value = null;
-  selectedMethod.value = null;
   loadData();
 }
 
 function onRangeSelect(rangeStart: string, rangeEnd: string) {
   start.value = rangeStart;
   end.value = rangeEnd;
-  selectedStatus.value = null;
-  selectedMethod.value = null;
   loadData();
 }
+
+const statusButtons = computed(() => {
+  if (!stats.value) return [];
+  const rows = stats.value.status_distribution.rows;
+  if (
+    selectedStatus.value != null &&
+    !rows.some((r) => r[0] === selectedStatus.value)
+  ) {
+    return [...rows, [selectedStatus.value, 0]].sort((a, b) => a[0] - b[0]);
+  }
+  return rows;
+});
+
+const methodButtons = computed(() => {
+  if (!stats.value) return [];
+  const rows = stats.value.method_distribution.rows;
+  if (
+    selectedMethod.value != null &&
+    !rows.some((r) => r[0] === selectedMethod.value)
+  ) {
+    return [...rows, [selectedMethod.value, 0]];
+  }
+  return rows;
+});
 
 function cell(row: any[], columns: string[], name: string): any {
   const idx = columns.indexOf(name);
@@ -130,28 +150,37 @@ function clearRange() {
   loadData();
 }
 
-async function loadData() {
+async function fetchAll() {
   expandedRow.value = null;
+  const statusCode = selectedStatus.value ?? undefined;
+  const method = selectedMethod.value ?? undefined;
+  const [statsData, entriesData] = await Promise.all([
+    fetchAccessLogStats(
+      projectId,
+      siteKey,
+      start.value,
+      end.value ?? undefined,
+      statusCode,
+      method,
+    ),
+    fetchAccessLogEntries(
+      projectId,
+      siteKey,
+      start.value,
+      statusCode,
+      end.value ?? undefined,
+      method,
+    ),
+  ]);
+  stats.value = statsData;
+  entries.value = entriesData;
+}
+
+async function loadData() {
   loading.value = true;
   error.value = null;
   try {
-    const [statsData, entriesData] = await Promise.all([
-      fetchAccessLogStats(
-        projectId,
-        siteKey,
-        start.value,
-        end.value ?? undefined,
-      ),
-      fetchAccessLogEntries(
-        projectId,
-        siteKey,
-        start.value,
-        undefined,
-        end.value ?? undefined,
-      ),
-    ]);
-    stats.value = statsData;
-    entries.value = entriesData;
+    await fetchAll();
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -159,24 +188,16 @@ async function loadData() {
   }
 }
 
-async function loadEntries() {
-  expandedRow.value = null;
+async function applyFilters() {
   try {
-    entries.value = await fetchAccessLogEntries(
-      projectId,
-      siteKey,
-      start.value,
-      selectedStatus.value ?? undefined,
-      end.value ?? undefined,
-      selectedMethod.value ?? undefined,
-    );
+    await fetchAll();
   } catch (e) {
     error.value = (e as Error).message;
   }
 }
 
-watch(selectedStatus, loadEntries);
-watch(selectedMethod, loadEntries);
+watch(selectedStatus, applyFilters);
+watch(selectedMethod, applyFilters);
 onMounted(loadData);
 </script>
 
@@ -271,11 +292,11 @@ onMounted(loadData);
         @select="onRangeSelect"
       />
 
-      <div v-if="stats.status_distribution.rows.length" class="mt-6">
+      <div v-if="statusButtons.length" class="mt-6">
         <h3 class="text-sm font-semibold text-gray-400 mb-2">Status Codes</h3>
         <div class="flex flex-wrap gap-2">
           <button
-            v-for="row in stats.status_distribution.rows"
+            v-for="row in statusButtons"
             :key="row[0]"
             class="rounded px-3 py-1.5 text-sm border transition-colors cursor-pointer"
             :class="
@@ -295,11 +316,11 @@ onMounted(loadData);
         </div>
       </div>
 
-      <div v-if="stats.method_distribution.rows.length" class="mt-6">
+      <div v-if="methodButtons.length" class="mt-6">
         <h3 class="text-sm font-semibold text-gray-400 mb-2">Request Method</h3>
         <div class="flex flex-wrap gap-2">
           <button
-            v-for="row in stats.method_distribution.rows"
+            v-for="row in methodButtons"
             :key="row[0]"
             class="rounded px-3 py-1.5 text-sm border transition-colors cursor-pointer"
             :class="

@@ -126,11 +126,23 @@ async def get_stats(
     site_key: str,
     start: str = Query(),
     end: str | None = Query(None),
+    status_code: int | None = Query(None),
+    method: str | None = Query(None),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
-    conditions, bindings = _time_conditions(start, end)
-    where = f"WHERE {' AND '.join(conditions)}"
+    time_conditions, time_bindings = _time_conditions(start, end)
+    time_where = f"WHERE {' AND '.join(time_conditions)}"
+
+    filtered_conditions = list(time_conditions)
+    filtered_bindings = list(time_bindings)
+    if status_code is not None:
+        filtered_conditions.append("status_code = ?")
+        filtered_bindings.append(status_code)
+    if method is not None:
+        filtered_conditions.append("method = ?")
+        filtered_bindings.append(method)
+    filtered_where = f"WHERE {' AND '.join(filtered_conditions)}"
 
     summary_sql = f"""
         SELECT
@@ -139,19 +151,19 @@ async def get_stats(
             ROUND(MIN(duration_ms), 2) AS min_duration_ms,
             ROUND(MAX(duration_ms), 2) AS max_duration_ms,
             SUM(CASE WHEN exception_class IS NOT NULL THEN 1 ELSE 0 END) AS total_exceptions
-        FROM access_log {where}
+        FROM access_log {filtered_where}
     """
 
     dist_sql = f"""
         SELECT status_code, COUNT(*) AS count
-        FROM access_log {where}
+        FROM access_log {time_where}
         GROUP BY status_code
         ORDER BY status_code
     """
 
     method_dist_sql = f"""
         SELECT method, COUNT(*) AS count
-        FROM access_log {where}
+        FROM access_log {time_where}
         GROUP BY method
         ORDER BY count DESC
     """
@@ -163,16 +175,16 @@ async def get_stats(
             strftime('{bucket_fmt}', timestamp) AS bucket,
             SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END) AS ok,
             SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) AS not_ok
-        FROM access_log {where}
+        FROM access_log {filtered_where}
         GROUP BY bucket
         ORDER BY bucket
     """
 
     summary, status_distribution, method_distribution, volume = await asyncio.gather(
-        _query_agent(site, summary_sql, bindings),
-        _query_agent(site, dist_sql, bindings),
-        _query_agent(site, method_dist_sql, bindings),
-        _query_agent(site, volume_sql, bindings),
+        _query_agent(site, summary_sql, filtered_bindings),
+        _query_agent(site, dist_sql, time_bindings),
+        _query_agent(site, method_dist_sql, time_bindings),
+        _query_agent(site, volume_sql, filtered_bindings),
     )
 
     return {
