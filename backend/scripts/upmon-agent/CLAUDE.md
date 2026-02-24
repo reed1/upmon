@@ -16,6 +16,10 @@ upmon-agent cleanup
 
 `config.json` (gitignored; see `config.sample.json`). Each site has `api_key`, `db_path`, and `retention_days`.
 
+## Integrating Access Logging in a New Project
+
+See [ACCESS_LOG_INTEGRATION.md](ACCESS_LOG_INTEGRATION.md) for a step-by-step guide on adding Upmon-compatible access logging to a Python/FastAPI application.
+
 ## Access Log SQLite Schema
 
 The agent reads from a SQLite database created by the monitored application's access logger:
