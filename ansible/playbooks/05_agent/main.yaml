@@ -23,23 +23,43 @@
       register: tmpdir
       tags: [push-agent]
 
-    - name: Template agent config per destination
-      ansible.builtin.copy:
-        content: "{{ lookup('template', repo_root + '/backend/scripts/upmon-agent/config.json.j2') }}"
-        dest: "{{ tmpdir.path }}/{{ item.value[0].ssh_host }}.json"
-        mode: "0644"
-      vars:
-        upmon_agent_api_keys: "{{ item.value | map(attribute='agent_api_key') | list | unique }}"
+    - name: Generate agent config per destination
+      ansible.builtin.shell:
+        cmd: |
+          python3 << 'PYEOF'
+          import json
+          sites = json.loads("""{{ item.value | to_json }}""")
+          default_retention = {{ upmon_config.agent_defaults.retention_days }}
+          config = {"sites": [
+              {"api_key": s["agent_api_key"], "db_path": s["db_path"], "retention_days": s.get("retention_days", default_retention)}
+              for s in sites
+          ]}
+          with open("{{ tmpdir.path }}/{{ item.value[0].ssh_host }}.json", "w") as f:
+              json.dump(config, f)
+          PYEOF
       loop: "{{ agent_by_dest | dict2items }}"
       loop_control:
         label: "{{ item.key }}"
       tags: [push-agent]
 
+    - name: Template systemd units
+      ansible.builtin.copy:
+        content: "{{ lookup('template', repo_root + '/ansible/playbooks/05_agent/templates/' + item) }}"
+        dest: "{{ tmpdir.path }}/{{ item | replace('.j2', '') }}"
+        mode: "0644"
+      loop:
+        - upmon-agent-cleanup.service.j2
+        - upmon-agent-cleanup.timer.j2
+      tags: [push-agent]
+
     - name: Deploy agent to target
       ansible.builtin.shell: |
-        ssh {{ item.value[0].ssh_host }} 'mkdir -p ~/app/upmon-agent' && \
+        ssh {{ item.value[0].ssh_host }} 'mkdir -p ~/app/upmon-agent ~/.config/systemd/user' && \
         scp {{ repo_root }}/backend/scripts/upmon-agent/main.py {{ item.value[0].ssh_host }}:~/app/upmon-agent/main.py && \
-        scp {{ tmpdir.path }}/{{ item.value[0].ssh_host }}.json {{ item.value[0].ssh_host }}:~/app/upmon-agent/config.json
+        scp {{ tmpdir.path }}/{{ item.value[0].ssh_host }}.json {{ item.value[0].ssh_host }}:~/app/upmon-agent/config.json && \
+        scp {{ tmpdir.path }}/upmon-agent-cleanup.service {{ item.value[0].ssh_host }}:~/.config/systemd/user/upmon-agent-cleanup.service && \
+        scp {{ tmpdir.path }}/upmon-agent-cleanup.timer {{ item.value[0].ssh_host }}:~/.config/systemd/user/upmon-agent-cleanup.timer && \
+        ssh {{ item.value[0].ssh_host }} 'systemctl --user daemon-reload && systemctl --user enable --now upmon-agent-cleanup.timer'
       loop: "{{ agent_by_dest | dict2items }}"
       loop_control:
         label: "{{ item.key }}"

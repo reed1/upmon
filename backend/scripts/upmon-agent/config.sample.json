@@ -1,0 +1,9 @@
+{
+  "sites": [
+    {
+      "api_key": "your-api-key",
+      "db_path": "/absolute/path/to/access-log.db",
+      "retention_days": 360
+    }
+  ]
+}
