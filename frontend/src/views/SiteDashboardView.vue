@@ -4,6 +4,8 @@ import type { Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { fetchAccessLogStats, fetchAccessLogEntries } from '../api';
 import type { AccessLogStats, AccessLogEntries } from '../types';
+import { VueDatePicker } from '@vuepic/vue-datepicker';
+import '@vuepic/vue-datepicker/dist/main.css';
 import VolumeChart from '../components/VolumeChart.vue';
 import LogEntriesTable from '../components/LogEntriesTable.vue';
 
@@ -66,6 +68,24 @@ function onRangeSelect(rangeStart: string, rangeEnd: string) {
   start.value = rangeStart;
   end.value = rangeEnd;
   loadData();
+}
+
+const dateRange = ref<[Date, Date] | null>(null);
+
+function onDateRangePicked(value: [Date, Date] | null) {
+  if (!value) return;
+  const [from, to] = value;
+  const startOfDay = new Date(
+    from.getFullYear(),
+    from.getMonth(),
+    from.getDate(),
+  );
+  const dayAfterEnd = new Date(
+    to.getFullYear(),
+    to.getMonth(),
+    to.getDate() + 1,
+  );
+  onRangeSelect(startOfDay.toISOString(), dayAfterEnd.toISOString());
 }
 
 const statusButtons = computed(() => {
@@ -233,6 +253,24 @@ onMounted(loadData);
       >
         {{ p.label }}
       </button>
+      <VueDatePicker
+        v-model="dateRange"
+        range
+        :enable-time-picker="false"
+        dark
+        auto-apply
+        :max-date="new Date()"
+        class="!inline-block !w-auto"
+        @update:model-value="onDateRangePicked"
+      >
+        <template #trigger>
+          <button
+            class="px-2.5 py-1 text-xs rounded-md border transition-colors bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200"
+          >
+            Custom
+          </button>
+        </template>
+      </VueDatePicker>
     </div>
 
     <div
