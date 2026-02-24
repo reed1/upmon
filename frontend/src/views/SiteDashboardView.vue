@@ -131,6 +131,18 @@ function toggleMethod(method: string) {
 }
 
 const expandedRow = ref<number | null>(null);
+const sortColumn = ref('timestamp');
+const sortDir = ref<'asc' | 'desc'>('desc');
+
+function toggleSort(column: string) {
+  if (sortColumn.value === column) {
+    sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortColumn.value = column;
+    sortDir.value = 'desc';
+  }
+  reloadLogEntries();
+}
 
 function toggleRow(i: number) {
   expandedRow.value = expandedRow.value === i ? null : i;
@@ -150,30 +162,58 @@ function clearRange() {
   loadData();
 }
 
+function filterParams() {
+  return {
+    statusCode: selectedStatus.value ?? undefined,
+    method: selectedMethod.value ?? undefined,
+    end: end.value ?? undefined,
+  };
+}
+
 async function fetchAll() {
   expandedRow.value = null;
-  const statusCode = selectedStatus.value ?? undefined;
-  const method = selectedMethod.value ?? undefined;
+  const f = filterParams();
   const [statsData, entriesData] = await Promise.all([
     fetchAccessLogStats(
       projectId,
       siteKey,
       start.value,
-      end.value ?? undefined,
-      statusCode,
-      method,
+      f.end,
+      f.statusCode,
+      f.method,
     ),
     fetchAccessLogEntries(
       projectId,
       siteKey,
       start.value,
-      statusCode,
-      end.value ?? undefined,
-      method,
+      f.statusCode,
+      f.end,
+      f.method,
+      sortColumn.value,
+      sortDir.value,
     ),
   ]);
   stats.value = statsData;
   entries.value = entriesData;
+}
+
+async function reloadLogEntries() {
+  expandedRow.value = null;
+  try {
+    const f = filterParams();
+    entries.value = await fetchAccessLogEntries(
+      projectId,
+      siteKey,
+      start.value,
+      f.statusCode,
+      f.end,
+      f.method,
+      sortColumn.value,
+      sortDir.value,
+    );
+  } catch (e) {
+    error.value = (e as Error).message;
+  }
 }
 
 async function loadData() {
@@ -341,17 +381,34 @@ onMounted(loadData);
       </div>
 
       <div v-if="entries && entries.rows.length" class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 mb-2">Recent Logs</h3>
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Log Entries</h3>
         <div class="overflow-x-auto">
           <table class="w-full text-sm border-collapse">
             <thead>
               <tr class="text-left text-gray-500 border-b border-gray-800">
                 <th class="py-2 w-6"></th>
-                <th class="py-2 pr-4">Timestamp</th>
-                <th class="py-2 pr-4">Method</th>
-                <th class="py-2 pr-4">Path</th>
-                <th class="py-2 pr-4">Status</th>
-                <th class="py-2 pr-4 text-right">Duration</th>
+                <th
+                  v-for="col in [
+                    { key: 'timestamp', label: 'Timestamp', align: '' },
+                    { key: 'method', label: 'Method', align: '' },
+                    { key: 'path', label: 'Path', align: '' },
+                    { key: 'status_code', label: 'Status', align: '' },
+                    {
+                      key: 'duration_ms',
+                      label: 'Duration',
+                      align: 'text-right',
+                    },
+                  ]"
+                  :key="col.key"
+                  class="py-2 pr-4 cursor-pointer select-none hover:text-gray-300 transition-colors"
+                  :class="col.align"
+                  @click="toggleSort(col.key)"
+                >
+                  {{ col.label }}
+                  <span v-if="sortColumn === col.key" class="ml-0.5">
+                    {{ sortDir === 'asc' ? '\u25B2' : '\u25BC' }}
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>

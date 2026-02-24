@@ -91,6 +91,9 @@ async def list_sites(request: Request) -> list[dict]:
     return [{"project_id": site.project_id, "site_key": site.site_key} for site in request.app.state.agent_config.sites]
 
 
+_LOGS_ORDER_COLUMNS = {"timestamp", "method", "path", "status_code", "duration_ms"}
+
+
 @router.get("/sites/{project_id}/{site_key}/logs")
 async def get_logs(
     request: Request,
@@ -100,6 +103,8 @@ async def get_logs(
     end: str | None = Query(None),
     status_code: int | None = Query(None),
     method: str | None = Query(None),
+    order_by: str = Query("timestamp"),
+    order_dir: str = Query("desc"),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
 
@@ -112,8 +117,12 @@ async def get_logs(
         conditions.append("method = ?")
         bindings.append(method)
 
+    if order_by not in _LOGS_ORDER_COLUMNS:
+        raise HTTPException(status_code=400, detail=f"Invalid order_by: {order_by}")
+    direction = "ASC" if order_dir == "asc" else "DESC"
+
     where = f"WHERE {' AND '.join(conditions)}"
-    sql = f"SELECT * FROM access_log {where} ORDER BY timestamp DESC LIMIT 100"
+    sql = f"SELECT * FROM access_log {where} ORDER BY {order_by} {direction} LIMIT 100"
 
     result = await _query_agent(site, sql, bindings)
     return _parse_json_columns(result)
