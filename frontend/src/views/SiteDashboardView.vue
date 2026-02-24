@@ -97,9 +97,9 @@ function cell(row: any[], columns: string[], name: string): any {
   return idx >= 0 ? row[idx] : null;
 }
 
-function formatTimestamp(utc: string | null): string {
-  if (!utc) return '-';
-  const d = new Date(utc);
+function formatTimestamp(epochSec: number | null): string {
+  if (epochSec == null) return '-';
+  const d = new Date(epochSec * 1000);
   const day = String(d.getDate()).padStart(2, '0');
   const mon = d.toLocaleString('en-US', { month: 'short' });
   const year = d.getFullYear();
@@ -131,7 +131,7 @@ function toggleMethod(method: string) {
 }
 
 const expandedRow = ref<number | null>(null);
-const sortColumn = ref('timestamp');
+const sortColumn = ref('epoch_sec');
 const sortDir = ref<'asc' | 'desc'>('desc');
 
 function toggleSort(column: string) {
@@ -389,7 +389,7 @@ onMounted(loadData);
                 <th class="py-2 w-6"></th>
                 <th
                   v-for="col in [
-                    { key: 'timestamp', label: 'Timestamp', align: '' },
+                    { key: 'epoch_sec', label: 'Timestamp', align: '' },
                     { key: 'method', label: 'Method', align: '' },
                     { key: 'path', label: 'Path', align: '' },
                     { key: 'status_code', label: 'Status', align: '' },
@@ -433,7 +433,7 @@ onMounted(loadData);
                   </td>
                   <td class="py-1.5 pr-4 text-gray-400 whitespace-nowrap">
                     {{
-                      formatTimestamp(cell(row, entries.columns, 'timestamp'))
+                      formatTimestamp(cell(row, entries.columns, 'epoch_sec'))
                     }}
                   </td>
                   <td class="py-1.5 pr-4 font-mono">

@@ -19,11 +19,11 @@ router = APIRouter(
 
 
 def _time_conditions(start: str, end: str | None) -> tuple[list[str], list]:
-    conditions = ["timestamp >= ?"]
-    bindings: list = [start]
+    conditions = ["epoch_sec >= ?"]
+    bindings: list = [int(dt.fromisoformat(start).timestamp())]
     if end is not None:
-        conditions.append("timestamp <= ?")
-        bindings.append(end)
+        conditions.append("epoch_sec <= ?")
+        bindings.append(int(dt.fromisoformat(end).timestamp()))
     return conditions, bindings
 
 
@@ -91,7 +91,7 @@ async def list_sites(request: Request) -> list[dict]:
     return [{"project_id": site.project_id, "site_key": site.site_key} for site in request.app.state.agent_config.sites]
 
 
-_LOGS_ORDER_COLUMNS = {"timestamp", "method", "path", "status_code", "duration_ms"}
+_LOGS_ORDER_COLUMNS = {"epoch_sec", "method", "path", "status_code", "duration_ms"}
 
 
 @router.get("/sites/{project_id}/{site_key}/logs")
@@ -103,7 +103,7 @@ async def get_logs(
     end: str | None = Query(None),
     status_code: int | None = Query(None),
     method: str | None = Query(None),
-    order_by: str = Query("timestamp"),
+    order_by: str = Query("epoch_sec"),
     order_dir: str = Query("desc"),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
@@ -181,7 +181,7 @@ async def get_stats(
 
     volume_sql = f"""
         SELECT
-            strftime('{bucket_fmt}', timestamp) AS bucket,
+            strftime('{bucket_fmt}', epoch_sec, 'unixepoch') AS bucket,
             SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END) AS ok,
             SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) AS not_ok
         FROM access_log {filtered_where}

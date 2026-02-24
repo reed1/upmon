@@ -62,7 +62,7 @@ def cmd_cleanup(_args):
         try:
             cursor = conn.cursor()
             cursor.execute(
-                "DELETE FROM access_log WHERE timestamp < datetime('now', ?)",
+                "DELETE FROM access_log WHERE epoch_sec < CAST(strftime('%s', 'now', ?) AS INTEGER)",
                 [f"-{retention_days} days"],
             )
             deleted = cursor.rowcount
