@@ -10,6 +10,13 @@
         chdir: "{{ app_dir }}"
       tags: [push-backend]
 
+    - name: Mark backend for restart after code push
+      ansible.builtin.command:
+        cmd: /bin/true
+      changed_when: true
+      notify: restart backend
+      tags: [push-backend]
+
     - name: Sync agent API keys
       ansible.builtin.command:
         cmd: python3 {{ repo_root }}/ansible/scripts/sync_agent_keys.py
