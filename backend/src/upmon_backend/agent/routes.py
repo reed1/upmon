@@ -64,7 +64,7 @@ async def _query_agent(site, sql: str, bindings: list | None = None) -> dict:
     return data["result"]
 
 
-_JSON_PARSE_COLUMNS = ("query", "body", "files", "traceback")
+_JSON_PARSE_COLUMNS = ("query", "body", "files", "exception_traceback")
 
 
 def _parse_json_columns(result: dict, columns: tuple[str, ...] = _JSON_PARSE_COLUMNS) -> dict:
