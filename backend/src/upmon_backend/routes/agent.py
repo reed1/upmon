@@ -198,38 +198,34 @@ async def get_stats(
         FROM access_log {filtered_where}
     """
 
-    exception_dist_sql = f"""
-        SELECT
+    distributions_sql = f"""
+        WITH base AS (
+            SELECT * FROM access_log {time_where}
+        )
+        SELECT 'exception_type' AS dist,
             CASE
                 WHEN exception_is_unexpected IS NULL THEN 'none'
                 WHEN exception_is_unexpected = 0 THEN 'expected'
                 ELSE 'unexpected'
-            END AS exception_type,
+            END AS value,
             COUNT(*) AS count
-        FROM access_log {time_where}
-        GROUP BY exception_type
-        ORDER BY exception_type
-    """
+        FROM base
+        GROUP BY value
 
-    method_dist_sql = f"""
-        SELECT method, COUNT(*) AS count
-        FROM access_log {time_where}
+        UNION ALL
+        SELECT 'method', method, COUNT(*)
+        FROM base
         GROUP BY method
-        ORDER BY count DESC
-    """
 
-    platform_dist_sql = f"""
-        SELECT platform, COUNT(*) AS count
-        FROM access_log {time_where} AND platform IS NOT NULL
+        UNION ALL
+        SELECT 'platform', platform, COUNT(*)
+        FROM base
         GROUP BY platform
-        ORDER BY count DESC
-    """
 
-    client_type_dist_sql = f"""
-        SELECT client_type, COUNT(*) AS count
-        FROM access_log {time_where} AND client_type IS NOT NULL
+        UNION ALL
+        SELECT 'client_type', client_type, COUNT(*)
+        FROM base
         GROUP BY client_type
-        ORDER BY count DESC
     """
 
     bucket_fmt = _bucket_format(_span_minutes(start, end))
@@ -244,21 +240,18 @@ async def get_stats(
         ORDER BY bucket
     """
 
+    summary, distributions, volume = await asyncio.gather(
+        _query_agent(site, summary_sql, filtered_bindings),
+        _query_agent(site, distributions_sql, time_bindings),
+        _query_agent(site, volume_sql, filtered_bindings),
+    )
+
     (
-        summary,
         exception_distribution,
         method_distribution,
         platform_distribution,
         client_type_distribution,
-        volume,
-    ) = await asyncio.gather(
-        _query_agent(site, summary_sql, filtered_bindings),
-        _query_agent(site, exception_dist_sql, time_bindings),
-        _query_agent(site, method_dist_sql, time_bindings),
-        _query_agent(site, platform_dist_sql, time_bindings),
-        _query_agent(site, client_type_dist_sql, time_bindings),
-        _query_agent(site, volume_sql, filtered_bindings),
-    )
+    ) = _split_distributions(distributions)
 
     return {
         "summary": summary,
@@ -268,3 +261,29 @@ async def get_stats(
         "client_type_distribution": client_type_distribution,
         "volume": volume,
     }
+
+
+def _split_distributions(result: dict) -> tuple[dict, dict, dict, dict]:
+    groups: dict[str, list] = {
+        "exception_type": [],
+        "method": [],
+        "platform": [],
+        "client_type": [],
+    }
+    for row in result["rows"]:
+        if row[1] is not None:
+            groups[row[0]].append(row[1:])
+
+    groups["exception_type"].sort(key=lambda r: r[0])
+    for key in ("method", "platform", "client_type"):
+        groups[key].sort(key=lambda r: r[1], reverse=True)
+
+    column_names = {
+        "exception_type": ["exception_type", "count"],
+        "method": ["method", "count"],
+        "platform": ["platform", "count"],
+        "client_type": ["client_type", "count"],
+    }
+    return tuple(
+        {"columns": column_names[k], "rows": groups[k]} for k in ("exception_type", "method", "platform", "client_type")
+    )
