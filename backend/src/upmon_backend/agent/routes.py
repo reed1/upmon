@@ -101,7 +101,9 @@ async def get_logs(
     site_key: str,
     start: str = Query(),
     end: str | None = Query(None),
-    status_code: int | None = Query(None),
+    exception_type: str | None = Query(None),
+    platform: str | None = Query(None),
+    client_type: str | None = Query(None),
     method: str | None = Query(None),
     order_by: str = Query("epoch_sec"),
     order_dir: str = Query("desc"),
@@ -110,9 +112,18 @@ async def get_logs(
 
     conditions, bindings = _time_conditions(start, end)
 
-    if status_code is not None:
-        conditions.append("status_code = ?")
-        bindings.append(status_code)
+    if exception_type == "none":
+        conditions.append("exception_is_unexpected IS NULL")
+    elif exception_type == "expected":
+        conditions.append("exception_is_unexpected = 0")
+    elif exception_type == "unexpected":
+        conditions.append("exception_is_unexpected = 1")
+    if platform is not None:
+        conditions.append("platform = ?")
+        bindings.append(platform)
+    if client_type is not None:
+        conditions.append("client_type = ?")
+        bindings.append(client_type)
     if method is not None:
         conditions.append("method = ?")
         bindings.append(method)
@@ -135,7 +146,9 @@ async def get_stats(
     site_key: str,
     start: str = Query(),
     end: str | None = Query(None),
-    status_code: int | None = Query(None),
+    exception_type: str | None = Query(None),
+    platform: str | None = Query(None),
+    client_type: str | None = Query(None),
     method: str | None = Query(None),
 ) -> dict:
     site = _get_site(request, project_id, site_key)
@@ -145,9 +158,18 @@ async def get_stats(
 
     filtered_conditions = list(time_conditions)
     filtered_bindings = list(time_bindings)
-    if status_code is not None:
-        filtered_conditions.append("status_code = ?")
-        filtered_bindings.append(status_code)
+    if exception_type == "none":
+        filtered_conditions.append("exception_is_unexpected IS NULL")
+    elif exception_type == "expected":
+        filtered_conditions.append("exception_is_unexpected = 0")
+    elif exception_type == "unexpected":
+        filtered_conditions.append("exception_is_unexpected = 1")
+    if platform is not None:
+        filtered_conditions.append("platform = ?")
+        filtered_bindings.append(platform)
+    if client_type is not None:
+        filtered_conditions.append("client_type = ?")
+        filtered_bindings.append(client_type)
     if method is not None:
         filtered_conditions.append("method = ?")
         filtered_bindings.append(method)
@@ -163,17 +185,37 @@ async def get_stats(
         FROM access_log {filtered_where}
     """
 
-    dist_sql = f"""
-        SELECT status_code, COUNT(*) AS count
+    exception_dist_sql = f"""
+        SELECT
+            CASE
+                WHEN exception_is_unexpected IS NULL THEN 'none'
+                WHEN exception_is_unexpected = 0 THEN 'expected'
+                ELSE 'unexpected'
+            END AS exception_type,
+            COUNT(*) AS count
         FROM access_log {time_where}
-        GROUP BY status_code
-        ORDER BY status_code
+        GROUP BY exception_type
+        ORDER BY exception_type
     """
 
     method_dist_sql = f"""
         SELECT method, COUNT(*) AS count
         FROM access_log {time_where}
         GROUP BY method
+        ORDER BY count DESC
+    """
+
+    platform_dist_sql = f"""
+        SELECT platform, COUNT(*) AS count
+        FROM access_log {time_where} AND platform IS NOT NULL
+        GROUP BY platform
+        ORDER BY count DESC
+    """
+
+    client_type_dist_sql = f"""
+        SELECT client_type, COUNT(*) AS count
+        FROM access_log {time_where} AND client_type IS NOT NULL
+        GROUP BY client_type
         ORDER BY count DESC
     """
 
@@ -189,16 +231,27 @@ async def get_stats(
         ORDER BY bucket
     """
 
-    summary, status_distribution, method_distribution, volume = await asyncio.gather(
+    (
+        summary,
+        exception_distribution,
+        method_distribution,
+        platform_distribution,
+        client_type_distribution,
+        volume,
+    ) = await asyncio.gather(
         _query_agent(site, summary_sql, filtered_bindings),
-        _query_agent(site, dist_sql, time_bindings),
+        _query_agent(site, exception_dist_sql, time_bindings),
         _query_agent(site, method_dist_sql, time_bindings),
+        _query_agent(site, platform_dist_sql, time_bindings),
+        _query_agent(site, client_type_dist_sql, time_bindings),
         _query_agent(site, volume_sql, filtered_bindings),
     )
 
     return {
         "summary": summary,
-        "status_distribution": status_distribution,
+        "exception_distribution": exception_distribution,
         "method_distribution": method_distribution,
+        "platform_distribution": platform_distribution,
+        "client_type_distribution": client_type_distribution,
         "volume": volume,
     }

@@ -51,7 +51,9 @@ export async function fetchAccessLogStats(
   siteKey: string,
   start: string,
   end?: string,
-  statusCode?: number,
+  exceptionType?: string,
+  platform?: string,
+  clientType?: string,
   method?: string,
 ): Promise<AccessLogStats> {
   const url = new URL(
@@ -60,8 +62,9 @@ export async function fetchAccessLogStats(
   );
   url.searchParams.set('start', start);
   if (end) url.searchParams.set('end', end);
-  if (statusCode != null)
-    url.searchParams.set('status_code', String(statusCode));
+  if (exceptionType) url.searchParams.set('exception_type', exceptionType);
+  if (platform) url.searchParams.set('platform', platform);
+  if (clientType) url.searchParams.set('client_type', clientType);
   if (method) url.searchParams.set('method', method);
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
@@ -74,8 +77,10 @@ export async function fetchAccessLogEntries(
   projectId: string,
   siteKey: string,
   start: string,
-  statusCode?: number,
   end?: string,
+  exceptionType?: string,
+  platform?: string,
+  clientType?: string,
   method?: string,
   orderBy?: string,
   orderDir?: string,
@@ -86,8 +91,9 @@ export async function fetchAccessLogEntries(
   );
   url.searchParams.set('start', start);
   if (end) url.searchParams.set('end', end);
-  if (statusCode != null)
-    url.searchParams.set('status_code', String(statusCode));
+  if (exceptionType) url.searchParams.set('exception_type', exceptionType);
+  if (platform) url.searchParams.set('platform', platform);
+  if (clientType) url.searchParams.set('client_type', clientType);
   if (method) url.searchParams.set('method', method);
   if (orderBy) url.searchParams.set('order_by', orderBy);
   if (orderDir) url.searchParams.set('order_dir', orderDir);

@@ -26,7 +26,9 @@ const periods = [
 ] as const;
 
 const selectedMinutes = ref(30);
-const selectedStatus: Ref<number | null> = ref(null);
+const selectedExceptionType: Ref<string | null> = ref(null);
+const selectedPlatform: Ref<string | null> = ref(null);
+const selectedClientType: Ref<string | null> = ref(null);
 const selectedMethod: Ref<string | null> = ref(null);
 const start = ref(new Date(Date.now() - 30 * 60_000).toISOString());
 const end: Ref<string | null> = ref(null);
@@ -88,14 +90,44 @@ function onDateRangePicked(value: [Date, Date] | null) {
   onRangeSelect(startOfDay.toISOString(), dayAfterEnd.toISOString());
 }
 
-const statusButtons = computed(() => {
+const exceptionTypeConfig = [
+  { key: 'none', label: 'OK', colorClass: 'text-emerald-400' },
+  { key: 'expected', label: 'Expected', colorClass: 'text-yellow-400' },
+  { key: 'unexpected', label: 'Unexpected', colorClass: 'text-red-400' },
+] as const;
+
+const exceptionButtons = computed(() => {
   if (!stats.value) return [];
-  const rows = stats.value.status_distribution.rows;
+  const countMap = new Map<string, number>();
+  for (const row of stats.value.exception_distribution.rows) {
+    countMap.set(row[0], row[1]);
+  }
+  return exceptionTypeConfig.map((cfg) => ({
+    ...cfg,
+    count: countMap.get(cfg.key) ?? 0,
+  }));
+});
+
+const platformButtons = computed(() => {
+  if (!stats.value) return [];
+  const rows = stats.value.platform_distribution.rows;
   if (
-    selectedStatus.value != null &&
-    !rows.some((r) => r[0] === selectedStatus.value)
+    selectedPlatform.value != null &&
+    !rows.some((r: any[]) => r[0] === selectedPlatform.value)
   ) {
-    return [...rows, [selectedStatus.value, 0]].sort((a, b) => a[0] - b[0]);
+    return [...rows, [selectedPlatform.value, 0]];
+  }
+  return rows;
+});
+
+const clientTypeButtons = computed(() => {
+  if (!stats.value) return [];
+  const rows = stats.value.client_type_distribution.rows;
+  if (
+    selectedClientType.value != null &&
+    !rows.some((r: any[]) => r[0] === selectedClientType.value)
+  ) {
+    return [...rows, [selectedClientType.value, 0]];
   }
   return rows;
 });
@@ -117,14 +149,17 @@ function formatDuration(ms: number | null): string {
   return `${Math.round(ms)}ms`;
 }
 
-function statusColor(code: number): string {
-  if (code < 300) return 'text-emerald-400';
-  if (code < 400) return 'text-yellow-400';
-  return 'text-red-400';
+function toggleExceptionType(key: string) {
+  selectedExceptionType.value =
+    selectedExceptionType.value === key ? null : key;
 }
 
-function toggleStatus(code: number) {
-  selectedStatus.value = selectedStatus.value === code ? null : code;
+function togglePlatform(value: string) {
+  selectedPlatform.value = selectedPlatform.value === value ? null : value;
+}
+
+function toggleClientType(value: string) {
+  selectedClientType.value = selectedClientType.value === value ? null : value;
 }
 
 function toggleMethod(method: string) {
@@ -150,7 +185,9 @@ function clearRange() {
 
 function filterParams() {
   return {
-    statusCode: selectedStatus.value ?? undefined,
+    exceptionType: selectedExceptionType.value ?? undefined,
+    platform: selectedPlatform.value ?? undefined,
+    clientType: selectedClientType.value ?? undefined,
     method: selectedMethod.value ?? undefined,
     end: end.value ?? undefined,
   };
@@ -164,15 +201,19 @@ async function fetchAll() {
       siteKey,
       start.value,
       f.end,
-      f.statusCode,
+      f.exceptionType,
+      f.platform,
+      f.clientType,
       f.method,
     ),
     fetchAccessLogEntries(
       projectId,
       siteKey,
       start.value,
-      f.statusCode,
       f.end,
+      f.exceptionType,
+      f.platform,
+      f.clientType,
       f.method,
       sortColumn.value,
       sortDir.value,
@@ -189,8 +230,10 @@ async function reloadLogEntries() {
       projectId,
       siteKey,
       start.value,
-      f.statusCode,
       f.end,
+      f.exceptionType,
+      f.platform,
+      f.clientType,
       f.method,
       sortColumn.value,
       sortDir.value,
@@ -220,7 +263,9 @@ async function applyFilters() {
   }
 }
 
-watch(selectedStatus, applyFilters);
+watch(selectedExceptionType, applyFilters);
+watch(selectedPlatform, applyFilters);
+watch(selectedClientType, applyFilters);
 watch(selectedMethod, applyFilters);
 onMounted(loadData);
 </script>
@@ -334,21 +379,69 @@ onMounted(loadData);
         @select="onRangeSelect"
       />
 
-      <div v-if="statusButtons.length" class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 mb-2">Status Codes</h3>
+      <div v-if="exceptionButtons.length" class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Response Type</h3>
         <div class="flex flex-wrap gap-2">
           <button
-            v-for="row in statusButtons"
-            :key="row[0]"
+            v-for="btn in exceptionButtons"
+            :key="btn.key"
             class="rounded px-3 py-1.5 text-sm border transition-colors cursor-pointer"
             :class="
-              selectedStatus === row[0]
+              selectedExceptionType === btn.key
                 ? 'bg-gray-700 border-gray-500'
                 : 'bg-gray-900 border-gray-800 hover:border-gray-600'
             "
-            @click="toggleStatus(row[0])"
+            @click="toggleExceptionType(btn.key)"
           >
-            <span :class="statusColor(row[0])" class="font-mono font-medium">
+            <span :class="btn.colorClass" class="font-medium">
+              {{ btn.label }}
+            </span>
+            <span class="text-gray-400 ml-2">
+              {{ btn.count.toLocaleString() }}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="platformButtons.length" class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Platform</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="row in platformButtons"
+            :key="row[0]"
+            class="rounded px-3 py-1.5 text-sm border transition-colors cursor-pointer"
+            :class="
+              selectedPlatform === row[0]
+                ? 'bg-gray-700 border-gray-500'
+                : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+            "
+            @click="togglePlatform(row[0])"
+          >
+            <span class="font-mono font-medium">
+              {{ row[0] }}
+            </span>
+            <span class="text-gray-400 ml-2">
+              {{ row[1]?.toLocaleString() }}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="clientTypeButtons.length" class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">Client Type</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="row in clientTypeButtons"
+            :key="row[0]"
+            class="rounded px-3 py-1.5 text-sm border transition-colors cursor-pointer"
+            :class="
+              selectedClientType === row[0]
+                ? 'bg-gray-700 border-gray-500'
+                : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+            "
+            @click="toggleClientType(row[0])"
+          >
+            <span class="font-mono font-medium">
               {{ row[0] }}
             </span>
             <span class="text-gray-400 ml-2">

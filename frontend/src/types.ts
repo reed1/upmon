@@ -25,8 +25,10 @@ export interface AccessLogSiteInfo {
 
 export interface AccessLogStats {
   summary: { columns: string[]; rows: any[][] };
-  status_distribution: { columns: string[]; rows: any[][] };
+  exception_distribution: { columns: string[]; rows: any[][] };
   method_distribution: { columns: string[]; rows: any[][] };
+  platform_distribution: { columns: string[]; rows: any[][] };
+  client_type_distribution: { columns: string[]; rows: any[][] };
   volume: { columns: string[]; rows: any[][] };
 }
 
