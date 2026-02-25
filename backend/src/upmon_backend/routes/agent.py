@@ -5,12 +5,25 @@ from datetime import datetime as dt, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from ..auth import require_api_key
 
 logger = logging.getLogger("upmon_backend.agent")
 
 _client = httpx.AsyncClient(timeout=30)
+
+
+class AgentSite(BaseModel):
+    project_id: str
+    site_key: str
+    agent_url: str
+    agent_api_key: str
+
+
+class AgentConfig(BaseModel):
+    sites: list[AgentSite]
+
 
 router = APIRouter(
     prefix="/api/v1/access-logs",

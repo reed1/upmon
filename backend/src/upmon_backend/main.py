@@ -6,9 +6,8 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from . import db
-from .agent.config import AgentConfig
-from .agent.routes import router as agent_router
 from .config import Settings
+from .routes.agent import AgentConfig, router as agent_router
 from .routes.health import router as health_router
 from .routes.monitors import router as monitors_router
 from .spa import SPAStaticFiles
