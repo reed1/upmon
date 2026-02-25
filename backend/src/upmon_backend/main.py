@@ -1,14 +1,13 @@
-import json
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
 from . import db
 from .config import Settings
-from .routes.agent import AgentConfig, router as agent_router
+from .routes.agent_errors import router as agent_errors_router
+from .routes.agent_logs import router as agent_logs_router
 from .routes.health import router as health_router
 from .routes.monitors import router as monitors_router
 from .spa import SPAStaticFiles
@@ -16,24 +15,10 @@ from .spa import SPAStaticFiles
 logger = logging.getLogger("upmon_backend")
 
 
-def _load_agent_config(path: str) -> AgentConfig | None:
-    config_path = Path(path)
-    if not config_path.exists():
-        logger.info("Agent config not found at %s, feature disabled", path)
-        return None
-    with open(config_path) as f:
-        return AgentConfig.model_validate(json.load(f))
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.pool = await db.create_pool(app.state.settings.database_url)
     logger.info("database ready")
-
-    agent_config = _load_agent_config(app.state.settings.agent_config)
-    if agent_config:
-        app.state.agent_config = agent_config
-        logger.info("Agent enabled with %d site(s)", len(agent_config.sites))
 
     yield
 
@@ -58,7 +43,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(monitors_router)
-    app.include_router(agent_router)
+    app.include_router(agent_logs_router)
+    app.include_router(agent_errors_router)
 
     app.mount(
         "/frontend",

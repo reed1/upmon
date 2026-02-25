@@ -1,7 +1,9 @@
 import asyncio
 import json
 import logging
+from functools import lru_cache
 from datetime import datetime as dt, timezone
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -23,6 +25,19 @@ class AgentSite(BaseModel):
 
 class AgentConfig(BaseModel):
     sites: list[AgentSite]
+
+
+@lru_cache(maxsize=1)
+def _load_agent_config(path: str) -> AgentConfig:
+    with open(path) as f:
+        return AgentConfig.model_validate(json.load(f))
+
+
+def get_agent_config(request: Request) -> AgentConfig:
+    path = request.app.state.settings.agent_config
+    if not Path(path).exists():
+        raise HTTPException(status_code=501, detail="Agent feature not configured")
+    return _load_agent_config(path)
 
 
 router = APIRouter(
@@ -54,8 +69,7 @@ def _bucket_format(span_minutes: float) -> str:
     return "%Y-%m-%dT00:00:00"
 
 
-def _get_site(request: Request, project_id: str, site_key: str):
-    config = request.app.state.agent_config
+def _get_site(config: AgentConfig, project_id: str, site_key: str):
     for site in config.sites:
         if site.project_id == project_id and site.site_key == site_key:
             return site
@@ -100,8 +114,8 @@ def _parse_json_columns(result: dict, columns: tuple[str, ...] = _JSON_PARSE_COL
 
 
 @router.get("/sites")
-async def list_sites(request: Request) -> list[dict]:
-    return [{"project_id": site.project_id, "site_key": site.site_key} for site in request.app.state.agent_config.sites]
+async def list_sites(config: AgentConfig = Depends(get_agent_config)) -> list[dict]:
+    return [{"project_id": site.project_id, "site_key": site.site_key} for site in config.sites]
 
 
 _LOGS_ORDER_COLUMNS = {"epoch_sec", "method", "path", "status_code", "duration_ms"}
@@ -109,7 +123,6 @@ _LOGS_ORDER_COLUMNS = {"epoch_sec", "method", "path", "status_code", "duration_m
 
 @router.get("/sites/{project_id}/{site_key}/logs")
 async def get_logs(
-    request: Request,
     project_id: str,
     site_key: str,
     start: str = Query(),
@@ -120,8 +133,9 @@ async def get_logs(
     method: str | None = Query(None),
     order_by: str = Query("epoch_sec"),
     order_dir: str = Query("desc"),
+    config: AgentConfig = Depends(get_agent_config),
 ) -> dict:
-    site = _get_site(request, project_id, site_key)
+    site = _get_site(config, project_id, site_key)
 
     conditions, bindings = _time_conditions(start, end)
 
@@ -154,7 +168,6 @@ async def get_logs(
 
 @router.get("/sites/{project_id}/{site_key}/stats")
 async def get_stats(
-    request: Request,
     project_id: str,
     site_key: str,
     start: str = Query(),
@@ -163,8 +176,9 @@ async def get_stats(
     platform: str | None = Query(None),
     client_type: str | None = Query(None),
     method: str | None = Query(None),
+    config: AgentConfig = Depends(get_agent_config),
 ) -> dict:
-    site = _get_site(request, project_id, site_key)
+    site = _get_site(config, project_id, site_key)
 
     time_conditions, time_bindings = _time_conditions(start, end)
     time_where = f"WHERE {' AND '.join(time_conditions)}"
