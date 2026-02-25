@@ -9,17 +9,8 @@ INPUT_FILE = CACHE_DIR / "upmon_agents.generated.json"
 OUTPUT_FILE = CACHE_DIR / "upmon_agents.enriched.json"
 
 
-def rpass_has(key: str) -> bool:
-    result = subprocess.run(["rpass", "has", key], capture_output=True, text=True)
-    return result.stdout.strip() == "1"
-
-
-def rpass_gen(key: str) -> None:
-    subprocess.run(["rpass", "gen", key], check=True)
-
-
-def rpass_get(key: str) -> str:
-    result = subprocess.run(["rpass", "get", key], capture_output=True, text=True, check=True)
+def rpass_ensure(key: str) -> str:
+    result = subprocess.run(["rpass", "ensure", key], capture_output=True, text=True, check=True)
     return result.stdout.strip()
 
 
@@ -45,10 +36,7 @@ def main():
     for site in data["sites"]:
         rpass_key = f"personal/upmon/apikey/{site['project_id']}/{site['site_key']}"
 
-        if not rpass_has(rpass_key):
-            rpass_gen(rpass_key)
-
-        api_key = rpass_get(rpass_key)
+        api_key = rpass_ensure(rpass_key)
         ssh_dest = resolve_ssh_dest(site["ssh_host"])
         enriched_sites.append({**site, "agent_api_key": api_key, "ssh_dest": ssh_dest})
 
