@@ -46,9 +46,13 @@ async def get_errors(
 
     results = await asyncio.gather(*(_query_agent(site, sql, bindings) for site in config.sites))
 
+    columns = results[0]["columns"]
+    total_errors = 0
     sites = {}
     for site, result in zip(config.sites, results):
         key = f"{site.project_id}/{site.site_key}"
-        sites[key] = _parse_json_columns(result)
+        rows = _parse_json_columns(result)["rows"]
+        total_errors += len(rows)
+        sites[key] = rows
 
-    return {"date": date, "sites": sites}
+    return {"date": date, "total_errors": total_errors, "columns": columns, "sites": sites}
