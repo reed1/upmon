@@ -3,15 +3,14 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI
 
 from . import db
 from .agent.config import AgentConfig
 from .agent.routes import router as agent_router
-from .auth import require_api_key
 from .config import Settings
-from .models import HourlySummary, MonitorStatus
+from .routes.health import router as health_router
+from .routes.monitors import router as monitors_router
 from .spa import SPAStaticFiles
 
 logger = logging.getLogger("upmon_backend")
@@ -53,39 +52,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
 
-    @app.get("/", include_in_schema=False)
-    async def root_redirect():
-        return RedirectResponse(url="/frontend", status_code=308)
-
-    @app.get("/health", include_in_schema=False)
-    async def health():
-        return {"status": "UP"}
-
-    @app.get(
-        "/api/v1/status",
-        response_model=list[MonitorStatus],
-        dependencies=[Depends(require_api_key)],
-    )
-    async def status(
-        request: Request,
-        project_id: str | None = Query(None),
-    ) -> list[dict]:
-        rows = await db.get_monitor_statuses(request.app.state.pool, project_id)
-        return [dict(r) for r in rows]
-
-    @app.get(
-        "/api/v1/daily-summary",
-        response_model=HourlySummary,
-        dependencies=[Depends(require_api_key)],
-    )
-    async def daily_summary(
-        request: Request,
-        project_id: str | None = Query(None),
-        days: int = Query(7),
-    ) -> HourlySummary:
-        days = max(1, min(days, 90))
-        return await db.get_hourly_summary(request.app.state.pool, project_id, days)
-
+    app.include_router(health_router)
+    app.include_router(monitors_router)
     app.include_router(agent_router)
 
     app.mount(
