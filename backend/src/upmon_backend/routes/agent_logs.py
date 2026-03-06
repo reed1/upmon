@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from collections.abc import Iterable
 from functools import lru_cache
 from datetime import datetime as dt, timezone
 from pathlib import Path
@@ -91,10 +92,10 @@ async def _query_agent(site, sql: str, bindings: list | None = None) -> dict:
     return data["result"]
 
 
-_JSON_PARSE_COLUMNS = ("query", "body", "files", "exception_traceback")
+_JSON_PARSE_COLUMNS = {"query", "body", "files", "exception_traceback"}
 
 
-def _parse_json_columns(result: dict, columns: tuple[str, ...] = _JSON_PARSE_COLUMNS) -> dict:
+def _parse_json_columns(result: dict, columns: Iterable[str] = _JSON_PARSE_COLUMNS) -> dict:
     col_indices = {i for i, c in enumerate(result["columns"]) if c in columns}
     if not col_indices:
         return result
