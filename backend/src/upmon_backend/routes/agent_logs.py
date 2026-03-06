@@ -245,12 +245,16 @@ async def get_stats(
     bucket_fmt = _bucket_format(_span_minutes(start, end))
 
     volume_sql = f"""
-        SELECT
-            strftime('{bucket_fmt}', epoch_sec, 'unixepoch') AS bucket,
-            SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END) AS ok,
-            SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) AS not_ok
-        FROM access_log {filtered_where}
-        GROUP BY bucket
+        WITH buckets AS (
+            SELECT
+                strftime('{bucket_fmt}', epoch_sec, 'unixepoch') AS bucket,
+                COUNT(*) AS total,
+                SUM(exception_class IS NOT NULL) AS exception
+            FROM access_log {filtered_where}
+            GROUP BY bucket
+        )
+        SELECT bucket, total - exception AS ok, exception
+        FROM buckets
         ORDER BY bucket
     """
 

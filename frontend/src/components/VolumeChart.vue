@@ -18,8 +18,8 @@ const data = computed<uPlot.AlignedData>(() => {
     (r) => new Date(r[0] + 'Z').getTime() / 1000,
   );
   const ok = props.rows.map((r) => r[1] as number);
-  const notOk = props.rows.map((r) => r[2] as number);
-  return [timestamps, ok, notOk];
+  const exception = props.rows.map((r) => r[2] as number);
+  return [timestamps, ok, exception];
 });
 
 function onSelect(u: uPlot) {
@@ -66,14 +66,14 @@ const opts = computed<Omit<uPlot.Options, 'width'>>(() => {
     series: [
       {},
       {
-        label: '2xx',
+        label: 'OK',
         stroke: '#34d399',
         width: 2,
         value: (_u: uPlot, v: number | null) =>
           v == null ? '—' : v.toLocaleString(),
       },
       {
-        label: 'Errors',
+        label: 'Exception',
         stroke: '#f87171',
         width: 2,
         value: (_u: uPlot, v: number | null) =>
