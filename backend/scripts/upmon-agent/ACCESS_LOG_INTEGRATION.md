@@ -15,7 +15,42 @@ The monitored app writes requests to a local SQLite database. Upmon's agent (dep
 Mount a router at `/health` with two routes:
 
 - `GET /health` — returns `{"status": "UP"}`. Used by uptime checks.
-- `GET /health/agent` — accepts `api_key`, `sql`, `bindings` as query params. Shells out to the `upmon-agent` script (`python3 <UPMON_AGENT_PATH> query '<json>'`) and returns the JSON result. The agent path comes from an env var / config.
+- `GET /health/agent` — accepts `api_key`, `sql`, `bindings` as query params. Shells out to the `upmon-agent` script and returns its JSON output. The agent path comes from an env var / config.
+
+```python
+import json
+import os
+import subprocess
+
+from fastapi import APIRouter, HTTPException, Query
+
+router = APIRouter(prefix="/health")
+
+
+@router.get("")
+def health():
+    return {"status": "UP"}
+
+
+@router.get("/agent")
+def health_agent(
+    api_key: str = Query(),
+    sql: str = Query(),
+    bindings: str = Query(default="[]"),
+):
+    agent_path = os.environ.get("UPMON_AGENT_PATH")
+    if not agent_path:
+        raise HTTPException(500, "UPMON_AGENT_PATH not configured")
+
+    payload = json.dumps({"api_key": api_key, "sql": sql, "bindings": json.loads(bindings)})
+    result = subprocess.run(
+        ["python3", agent_path, "query", payload],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return json.loads(result.stdout)
+```
 
 ## 2. SQLite Database
 
