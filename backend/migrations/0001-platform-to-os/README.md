@@ -67,6 +67,8 @@ def parse_os_from_user_agent(ua: str | None) -> str | None:
         return "macos"
     if "Windows" in ua:
         return "windows"
+    if "CrOS" in ua:
+        return "chromeos"
     if "Linux" in ua:
         return "linux"
     return None

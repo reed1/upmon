@@ -42,6 +42,7 @@ def main():
             WHEN user_agent LIKE '%iPhone%' OR user_agent LIKE '%iPad%' THEN 'ios'
             WHEN user_agent LIKE '%Macintosh%' THEN 'macos'
             WHEN user_agent LIKE '%Windows%' THEN 'windows'
+            WHEN user_agent LIKE '%CrOS%' THEN 'chromeos'
             WHEN user_agent LIKE '%Linux%' THEN 'linux'
             ELSE NULL
         END
