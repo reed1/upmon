@@ -81,12 +81,14 @@ def _to_epoch(iso: str) -> int:
 
 
 async def _query_agent(site, view: str, params: dict) -> dict:
-    payload = json.dumps({
-        "command": "query",
-        "api_key": site.agent_api_key,
-        "view": view,
-        **params,
-    })
+    payload = json.dumps(
+        {
+            "command": "query",
+            "api_key": site.agent_api_key,
+            "view": view,
+            **params,
+        }
+    )
     query_params = {"q": b64encode(payload.encode()).decode()}
     client = _client_no_verify if site.tls_skip_verify else _client
     req = client.build_request("GET", site.agent_url, params=query_params)
@@ -142,16 +144,20 @@ async def get_logs(
     config: AgentConfig = Depends(get_agent_config),
 ) -> dict:
     site = _get_site(config, project_id, site_key)
-    result = await _query_agent(site, "logs", {
-        "start": _to_epoch(start),
-        "end": _to_epoch(end) if end else None,
-        "exception_type": exception_type,
-        "os": os,
-        "client_type": client_type,
-        "method": method,
-        "order_by": order_by,
-        "order_dir": order_dir,
-    })
+    result = await _query_agent(
+        site,
+        "logs",
+        {
+            "start": _to_epoch(start),
+            "end": _to_epoch(end) if end else None,
+            "exception_type": exception_type,
+            "os": os,
+            "client_type": client_type,
+            "method": method,
+            "order_by": order_by,
+            "order_dir": order_dir,
+        },
+    )
     return _parse_json_columns(result)
 
 
@@ -168,14 +174,18 @@ async def get_stats(
     config: AgentConfig = Depends(get_agent_config),
 ) -> dict:
     site = _get_site(config, project_id, site_key)
-    result = await _query_agent(site, "stats", {
-        "start": _to_epoch(start),
-        "end": _to_epoch(end) if end else None,
-        "exception_type": exception_type,
-        "os": os,
-        "client_type": client_type,
-        "method": method,
-    })
+    result = await _query_agent(
+        site,
+        "stats",
+        {
+            "start": _to_epoch(start),
+            "end": _to_epoch(end) if end else None,
+            "exception_type": exception_type,
+            "os": os,
+            "client_type": client_type,
+            "method": method,
+        },
+    )
 
     (
         exception_distribution,

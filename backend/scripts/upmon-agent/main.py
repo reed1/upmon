@@ -88,7 +88,9 @@ def view_stats(cursor, params):
     filtered_conditions, filtered_bindings = _filter_conditions(params)
     filtered_where = f"WHERE {' AND '.join(filtered_conditions)}"
 
-    summary = _execute(cursor, f"""
+    summary = _execute(
+        cursor,
+        f"""
         SELECT
             COUNT(*) AS total_requests,
             ROUND(AVG(duration_ms), 2) AS avg_duration_ms,
@@ -96,9 +98,13 @@ def view_stats(cursor, params):
             ROUND(MAX(duration_ms), 2) AS max_duration_ms,
             SUM(CASE WHEN exception_class IS NOT NULL THEN 1 ELSE 0 END) AS total_exceptions
         FROM access_log {filtered_where}
-    """, filtered_bindings)
+    """,
+        filtered_bindings,
+    )
 
-    distributions = _execute(cursor, f"""
+    distributions = _execute(
+        cursor,
+        f"""
         WITH base AS (
             SELECT * FROM access_log {time_where}
         )
@@ -126,13 +132,17 @@ def view_stats(cursor, params):
         SELECT 'client_type', client_type, COUNT(*)
         FROM base
         GROUP BY client_type
-    """, time_bindings)
+    """,
+        time_bindings,
+    )
 
     end = params.get("end") or int(time.time())
     span_minutes = (end - params["start"]) / 60
     bucket_fmt = _bucket_format(span_minutes)
 
-    volume = _execute(cursor, f"""
+    volume = _execute(
+        cursor,
+        f"""
         WITH buckets AS (
             SELECT
                 strftime('{bucket_fmt}', epoch_sec, 'unixepoch') AS bucket,
@@ -144,7 +154,9 @@ def view_stats(cursor, params):
         SELECT bucket, total - exception AS ok, exception
         FROM buckets
         ORDER BY bucket
-    """, filtered_bindings)
+    """,
+        filtered_bindings,
+    )
 
     return {
         "summary": summary,
