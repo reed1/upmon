@@ -2,71 +2,8 @@
   hosts: localhost
   gather_facts: no
 
-  vars:
-    agent_sites: "{{ (lookup('file', '~/.cache/rlocal/rofi-vscode/upmon_agents.enriched.json') | from_json).sites }}"
-    agent_by_dest: >-
-      {{
-        agent_sites
-        | groupby('ssh_dest')
-        | items2dict(key_name=0, value_name=1)
-      }}
-
   tasks:
-    - name: Sync agent API keys
+    - name: Run agent deploy script
       ansible.builtin.command:
-        cmd: python3 {{ repo_root }}/ansible/scripts/sync_agent_keys.py
-      tags: [push-agent]
-
-    - name: Create temp dir
-      ansible.builtin.tempfile:
-        state: directory
-      register: tmpdir
-      tags: [push-agent]
-
-    - name: Generate agent config per destination
-      ansible.builtin.shell:
-        cmd: |
-          python3 << 'PYEOF'
-          import json
-          sites = json.loads("""{{ item.value | to_json }}""")
-          default_retention = {{ upmon_config.agent_defaults.retention_days }}
-          config = {"sites": [
-              {"api_key": s["agent_api_key"], "db_path": s["db_path"], "retention_days": s.get("retention_days", default_retention)}
-              for s in sites
-          ]}
-          with open("{{ tmpdir.path }}/{{ item.value[0].ssh_host }}.json", "w") as f:
-              json.dump(config, f)
-          PYEOF
-      loop: "{{ agent_by_dest | dict2items }}"
-      loop_control:
-        label: "{{ item.key }}"
-      tags: [push-agent]
-
-    - name: Template systemd units
-      ansible.builtin.copy:
-        content: "{{ lookup('template', repo_root + '/ansible/playbooks/05_agent/templates/' + item) }}"
-        dest: "{{ tmpdir.path }}/{{ item | replace('.j2', '') }}"
-        mode: "0644"
-      loop:
-        - upmon-agent-cleanup.service.j2
-        - upmon-agent-cleanup.timer.j2
-      tags: [push-agent]
-
-    - name: Deploy agent to target
-      ansible.builtin.shell: |
-        ssh {{ item.value[0].ssh_host }} 'mkdir -p ~/app/upmon-agent ~/.config/systemd/user' && \
-        scp {{ repo_root }}/backend/scripts/upmon-agent/main.py {{ item.value[0].ssh_host }}:~/app/upmon-agent/main.py && \
-        scp {{ tmpdir.path }}/{{ item.value[0].ssh_host }}.json {{ item.value[0].ssh_host }}:~/app/upmon-agent/config.json && \
-        scp {{ tmpdir.path }}/upmon-agent-cleanup.service {{ item.value[0].ssh_host }}:~/.config/systemd/user/upmon-agent-cleanup.service && \
-        scp {{ tmpdir.path }}/upmon-agent-cleanup.timer {{ item.value[0].ssh_host }}:~/.config/systemd/user/upmon-agent-cleanup.timer && \
-        ssh {{ item.value[0].ssh_host }} 'systemctl --user daemon-reload && systemctl --user enable --now upmon-agent-cleanup.timer'
-      loop: "{{ agent_by_dest | dict2items }}"
-      loop_control:
-        label: "{{ item.key }}"
-      tags: [push-agent]
-
-    - name: Remove temp dir
-      ansible.builtin.file:
-        path: "{{ tmpdir.path }}"
-        state: absent
+        cmd: python3 {{ repo_root }}/ansible/playbooks/05_agent/deploy.py
       tags: [push-agent]

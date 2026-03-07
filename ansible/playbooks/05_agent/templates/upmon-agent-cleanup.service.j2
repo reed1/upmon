@@ -1,6 +1,0 @@
-[Unit]
-Description=Upmon agent — clean up old access log entries
-
-[Service]
-Type=oneshot
-ExecStart=python3 %h/app/upmon-agent/main.py cleanup
