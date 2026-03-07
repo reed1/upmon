@@ -9,7 +9,7 @@ import type {
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const API_KEY = import.meta.env.VITE_API_KEY;
 
-async function throwApiError(res: Response): never {
+async function throwApiError(res: Response): Promise<never> {
   const body = await res.text();
   throw new Error(`API error ${res.status}: ${body}`);
 }
