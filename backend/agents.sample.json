@@ -5,6 +5,13 @@
       "site_key": "dev",
       "agent_url": "https://my-server.example.com/health/agent",
       "agent_api_key": "changeme"
+    },
+    {
+      "project_id": "my-project",
+      "site_key": "insecure-cert-example",
+      "agent_url": "https://example.com/health/agent",
+      "agent_api_key": "changeme",
+      "tls_skip_verify": true
     }
   ]
 }

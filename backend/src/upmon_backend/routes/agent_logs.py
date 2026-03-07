@@ -1,8 +1,9 @@
 import asyncio
 import json
 import logging
+import os
 from collections.abc import Iterable
-from functools import lru_cache
+from dataclasses import dataclass
 from datetime import datetime as dt, timezone
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from ..auth import require_api_key
 logger = logging.getLogger("upmon_backend.agent")
 
 _client = httpx.AsyncClient(timeout=30)
+_client_no_verify = httpx.AsyncClient(timeout=30, verify=False)
 
 
 class AgentSite(BaseModel):
@@ -22,16 +24,40 @@ class AgentSite(BaseModel):
     site_key: str
     agent_url: str
     agent_api_key: str
+    tls_skip_verify: bool = False
 
 
 class AgentConfig(BaseModel):
     sites: list[AgentSite]
 
 
-@lru_cache(maxsize=1)
+@dataclass
+class _AgentConfigCache:
+    config: AgentConfig | None = None
+    link_mtime: float | None = None
+    real_mtime: float | None = None
+
+
+_cache = _AgentConfigCache()
+
+
 def _load_agent_config(path: str) -> AgentConfig:
+    link_mtime = os.lstat(path).st_mtime
+    real_mtime = Path(path).stat().st_mtime
+
+    if (
+        _cache.config is not None
+        and link_mtime == _cache.link_mtime
+        and real_mtime == _cache.real_mtime
+    ):
+        return _cache.config
+
     with open(path) as f:
-        return AgentConfig.model_validate(json.load(f))
+        _cache.config = AgentConfig.model_validate(json.load(f))
+    _cache.link_mtime = link_mtime
+    _cache.real_mtime = real_mtime
+    logger.info("Reloaded agent config from %s", path)
+    return _cache.config
 
 
 def get_agent_config(request: Request) -> AgentConfig:
@@ -83,7 +109,8 @@ async def _query_agent(site, sql: str, bindings: list | None = None) -> dict:
         "sql": sql,
         "bindings": json.dumps(bindings or []),
     }
-    resp = await _client.get(site.agent_url, params=query_params)
+    client = _client_no_verify if site.tls_skip_verify else _client
+    resp = await client.get(site.agent_url, params=query_params)
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Agent error: {resp.text}")
     data = resp.json()
