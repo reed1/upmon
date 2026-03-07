@@ -19,7 +19,7 @@ Mount a router at `/health` with two routes:
 
 ## 2. SQLite Database
 
-Location: `<project>/run/access-log/access-log.db`. Create on startup with WAL mode enabled.
+Create on startup with WAL mode enabled.
 
 ### Schema
 
@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS access_log (
     status_code INTEGER,
     duration_ms REAL NOT NULL,
     user_agent TEXT,
-    platform TEXT,                       -- "web", "android", "ios"
-    client_type TEXT,                    -- "app" or "browser"
+    os TEXT,                             -- "android", "ios", "windows", "macos", "linux"
+    client_type TEXT NOT NULL,           -- "app" or "browser"
     app_version TEXT,
     files TEXT,                          -- JSON string of [{fieldname, originalname, mimetype, size}]
     exception_class TEXT,
@@ -105,16 +105,20 @@ on_request(req):
             status_code:  status_code,
             duration_ms:  round(now() - start, 2),
             user_agent:   req.headers["user-agent"],
-            platform:     detect_platform(req),
-            client_type:  req.headers["x-client-type"],
+            os:           detect_os(req),
+            client_type:  req.headers["x-client-type"] or "browser",
             app_version:  req.headers["x-app-version"],
             files:        json(uploaded_files_metadata) or null,
             exception_*:  from exception above
         }
 ```
 
-### Platform detection
+### OS detection
 
-- If `x-client-type` is `"app"`: trust `x-platform` header (native app knows its platform).
-- If `x-client-type` is `"browser"`: parse user-agent for Android/iPhone/iPad → `"android"`/`"ios"`, else `"web"`.
-- If no `x-client-type`: null.
+- If `x-client-type` is `"app"`: trust `x-os` header (Capacitor knows the native OS).
+- If `x-client-type` is `"browser"` (or absent, defaulting to `"browser"`): parse user-agent → `"android"`, `"ios"`, `"macos"`, `"windows"`, `"linux"`, or null.
+
+### Client type
+
+- From `x-client-type` header: `"app"` (native) or `"browser"`.
+- Defaults to `"browser"` when the header is absent.

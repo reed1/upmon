@@ -37,8 +37,8 @@ CREATE TABLE access_log (
   status_code INTEGER,
   duration_ms REAL NOT NULL,
   user_agent TEXT,
-  platform TEXT,
-  client_type TEXT,
+  os TEXT,
+  client_type TEXT NOT NULL,
   app_version TEXT,
   files TEXT,                     -- JSON string
   exception_class TEXT,
