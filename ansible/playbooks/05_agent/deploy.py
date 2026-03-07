@@ -4,6 +4,7 @@
 Replaces the Ansible playbook (main.yaml) with a straightforward script.
 """
 
+import argparse
 import json
 import shutil
 import subprocess
@@ -52,10 +53,17 @@ def sync_agent_keys():
     )
 
 
-def load_sites_by_dest() -> dict[str, list[dict]]:
+def load_sites_by_dest(project_id: str | None, site_key: str | None) -> dict[str, list[dict]]:
     data = json.loads(ENRICHED_FILE.read_text())
+    sites = data["sites"]
+    if project_id:
+        sites = [s for s in sites if s["project_id"] == project_id]
+    if site_key:
+        sites = [s for s in sites if s["site_key"] == site_key]
+    if not sites:
+        raise SystemExit("No matching sites found.")
     grouped: dict[str, list[dict]] = defaultdict(list)
-    for site in data["sites"]:
+    for site in sites:
         grouped[site["ssh_dest"]].append(site)
     return grouped
 
@@ -121,10 +129,18 @@ def deploy_to_host(ssh_host: str, agent_path: str, tmpdir: Path):
     )
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Deploy upmon-agent to target servers.")
+    parser.add_argument("project_id", nargs="?", help="Filter by project ID")
+    parser.add_argument("site_key", nargs="?", help="Filter by site key (e.g. dev, prod)")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     sync_agent_keys()
 
-    sites_by_dest = load_sites_by_dest()
+    sites_by_dest = load_sites_by_dest(args.project_id, args.site_key)
     manual_hosts = []
 
     with tempfile.TemporaryDirectory() as tmpdir:
