@@ -52,7 +52,7 @@ export async function fetchAccessLogStats(
   start: string,
   end?: string,
   exceptionType?: string,
-  platform?: string,
+  os?: string,
   clientType?: string,
   method?: string,
 ): Promise<AccessLogStats> {
@@ -63,7 +63,7 @@ export async function fetchAccessLogStats(
   url.searchParams.set('start', start);
   if (end) url.searchParams.set('end', end);
   if (exceptionType) url.searchParams.set('exception_type', exceptionType);
-  if (platform) url.searchParams.set('platform', platform);
+  if (os) url.searchParams.set('os', os);
   if (clientType) url.searchParams.set('client_type', clientType);
   if (method) url.searchParams.set('method', method);
   const res = await fetch(url, {
@@ -79,7 +79,7 @@ export async function fetchAccessLogEntries(
   start: string,
   end?: string,
   exceptionType?: string,
-  platform?: string,
+  os?: string,
   clientType?: string,
   method?: string,
   orderBy?: string,
@@ -92,7 +92,7 @@ export async function fetchAccessLogEntries(
   url.searchParams.set('start', start);
   if (end) url.searchParams.set('end', end);
   if (exceptionType) url.searchParams.set('exception_type', exceptionType);
-  if (platform) url.searchParams.set('platform', platform);
+  if (os) url.searchParams.set('os', os);
   if (clientType) url.searchParams.set('client_type', clientType);
   if (method) url.searchParams.set('method', method);
   if (orderBy) url.searchParams.set('order_by', orderBy);

@@ -27,7 +27,7 @@ const periods = [
 
 const selectedMinutes = ref(30);
 const selectedExceptionType: Ref<string | null> = ref(null);
-const selectedPlatform: Ref<string | null> = ref(null);
+const selectedOs: Ref<string | null> = ref(null);
 const selectedClientType: Ref<string | null> = ref(null);
 const selectedMethod: Ref<string | null> = ref(null);
 const start = ref(new Date(Date.now() - 30 * 60_000).toISOString());
@@ -108,14 +108,14 @@ const exceptionButtons = computed(() => {
   }));
 });
 
-const platformButtons = computed(() => {
+const osButtons = computed(() => {
   if (!stats.value) return [];
-  const rows = stats.value.platform_distribution.rows;
+  const rows = stats.value.os_distribution.rows;
   if (
-    selectedPlatform.value != null &&
-    !rows.some((r: any[]) => r[0] === selectedPlatform.value)
+    selectedOs.value != null &&
+    !rows.some((r: any[]) => r[0] === selectedOs.value)
   ) {
-    return [...rows, [selectedPlatform.value, 0]];
+    return [...rows, [selectedOs.value, 0]];
   }
   return rows;
 });
@@ -154,8 +154,8 @@ function toggleExceptionType(key: string) {
     selectedExceptionType.value === key ? null : key;
 }
 
-function togglePlatform(value: string) {
-  selectedPlatform.value = selectedPlatform.value === value ? null : value;
+function toggleOs(value: string) {
+  selectedOs.value = selectedOs.value === value ? null : value;
 }
 
 function toggleClientType(value: string) {
@@ -186,7 +186,7 @@ function clearRange() {
 function filterParams() {
   return {
     exceptionType: selectedExceptionType.value ?? undefined,
-    platform: selectedPlatform.value ?? undefined,
+    os: selectedOs.value ?? undefined,
     clientType: selectedClientType.value ?? undefined,
     method: selectedMethod.value ?? undefined,
     end: end.value ?? undefined,
@@ -202,7 +202,7 @@ async function fetchAll() {
       start.value,
       f.end,
       f.exceptionType,
-      f.platform,
+      f.os,
       f.clientType,
       f.method,
     ),
@@ -212,7 +212,7 @@ async function fetchAll() {
       start.value,
       f.end,
       f.exceptionType,
-      f.platform,
+      f.os,
       f.clientType,
       f.method,
       sortColumn.value,
@@ -232,7 +232,7 @@ async function reloadLogEntries() {
       start.value,
       f.end,
       f.exceptionType,
-      f.platform,
+      f.os,
       f.clientType,
       f.method,
       sortColumn.value,
@@ -264,7 +264,7 @@ async function applyFilters() {
 }
 
 watch(selectedExceptionType, applyFilters);
-watch(selectedPlatform, applyFilters);
+watch(selectedOs, applyFilters);
 watch(selectedClientType, applyFilters);
 watch(selectedMethod, applyFilters);
 onMounted(loadData);
@@ -403,19 +403,19 @@ onMounted(loadData);
         </div>
       </div>
 
-      <div v-if="platformButtons.length" class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 mb-2">Platform</h3>
+      <div v-if="osButtons.length" class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 mb-2">OS</h3>
         <div class="flex flex-wrap gap-2">
           <button
-            v-for="row in platformButtons"
+            v-for="row in osButtons"
             :key="row[0]"
             class="rounded px-3 py-1.5 text-sm border transition-colors cursor-pointer"
             :class="
-              selectedPlatform === row[0]
+              selectedOs === row[0]
                 ? 'bg-gray-700 border-gray-500'
                 : 'bg-gray-900 border-gray-800 hover:border-gray-600'
             "
-            @click="togglePlatform(row[0])"
+            @click="toggleOs(row[0])"
           >
             <span class="font-mono font-medium">
               {{ row[0] }}

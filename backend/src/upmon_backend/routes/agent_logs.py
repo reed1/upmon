@@ -129,7 +129,7 @@ async def get_logs(
     start: str = Query(),
     end: str | None = Query(None),
     exception_type: str | None = Query(None),
-    platform: str | None = Query(None),
+    os: str | None = Query(None),
     client_type: str | None = Query(None),
     method: str | None = Query(None),
     order_by: str = Query("epoch_sec"),
@@ -146,9 +146,9 @@ async def get_logs(
         conditions.append("exception_is_unexpected = 0")
     elif exception_type == "unexpected":
         conditions.append("exception_is_unexpected = 1")
-    if platform is not None:
-        conditions.append("platform = ?")
-        bindings.append(platform)
+    if os is not None:
+        conditions.append("os = ?")
+        bindings.append(os)
     if client_type is not None:
         conditions.append("client_type = ?")
         bindings.append(client_type)
@@ -174,7 +174,7 @@ async def get_stats(
     start: str = Query(),
     end: str | None = Query(None),
     exception_type: str | None = Query(None),
-    platform: str | None = Query(None),
+    os: str | None = Query(None),
     client_type: str | None = Query(None),
     method: str | None = Query(None),
     config: AgentConfig = Depends(get_agent_config),
@@ -192,9 +192,9 @@ async def get_stats(
         filtered_conditions.append("exception_is_unexpected = 0")
     elif exception_type == "unexpected":
         filtered_conditions.append("exception_is_unexpected = 1")
-    if platform is not None:
-        filtered_conditions.append("platform = ?")
-        filtered_bindings.append(platform)
+    if os is not None:
+        filtered_conditions.append("os = ?")
+        filtered_bindings.append(os)
     if client_type is not None:
         filtered_conditions.append("client_type = ?")
         filtered_bindings.append(client_type)
@@ -233,9 +233,9 @@ async def get_stats(
         GROUP BY method
 
         UNION ALL
-        SELECT 'platform', platform, COUNT(*)
+        SELECT 'os', os, COUNT(*)
         FROM base
-        GROUP BY platform
+        GROUP BY os
 
         UNION ALL
         SELECT 'client_type', client_type, COUNT(*)
@@ -268,7 +268,7 @@ async def get_stats(
     (
         exception_distribution,
         method_distribution,
-        platform_distribution,
+        os_distribution,
         client_type_distribution,
     ) = _split_distributions(distributions)
 
@@ -276,7 +276,7 @@ async def get_stats(
         "summary": summary,
         "exception_distribution": exception_distribution,
         "method_distribution": method_distribution,
-        "platform_distribution": platform_distribution,
+        "os_distribution": os_distribution,
         "client_type_distribution": client_type_distribution,
         "volume": volume,
     }
@@ -286,7 +286,7 @@ def _split_distributions(result: dict) -> tuple[dict, dict, dict, dict]:
     groups: dict[str, list] = {
         "exception_type": [],
         "method": [],
-        "platform": [],
+        "os": [],
         "client_type": [],
     }
     for row in result["rows"]:
@@ -294,15 +294,15 @@ def _split_distributions(result: dict) -> tuple[dict, dict, dict, dict]:
             groups[row[0]].append(row[1:])
 
     groups["exception_type"].sort(key=lambda r: r[0])
-    for key in ("method", "platform", "client_type"):
+    for key in ("method", "os", "client_type"):
         groups[key].sort(key=lambda r: r[1], reverse=True)
 
     column_names = {
         "exception_type": ["exception_type", "count"],
         "method": ["method", "count"],
-        "platform": ["platform", "count"],
+        "os": ["os", "count"],
         "client_type": ["client_type", "count"],
     }
     return tuple(
-        {"columns": column_names[k], "rows": groups[k]} for k in ("exception_type", "method", "platform", "client_type")
+        {"columns": column_names[k], "rows": groups[k]} for k in ("exception_type", "method", "os", "client_type")
     )
