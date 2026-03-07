@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 import sys
+from base64 import b64decode
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 with open(CONFIG_PATH) as f:
@@ -21,8 +22,13 @@ def respond(result=None, error=None):
         sys.exit(1)
 
 
+def _parse_query_args(raw: str) -> dict:
+    parsed = json.loads(raw)
+    return json.loads(b64decode(parsed["q"]).decode())
+
+
 def cmd_query(args):
-    parsed = json.loads(args.json_args)
+    parsed = _parse_query_args(args.json_args)
 
     api_key = parsed.get("api_key")
     if api_key not in SITES_BY_KEY:

@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 import os
+import re
+from base64 import b64encode
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime as dt, timezone
@@ -99,12 +101,19 @@ def _get_site(config: AgentConfig, project_id: str, site_key: str):
     raise HTTPException(status_code=404, detail=f"Unknown site: {project_id}/{site_key}")
 
 
+def _compact_sql(sql: str) -> str:
+    return re.sub(r"\s+", " ", sql).strip()
+
+
 async def _query_agent(site, sql: str, bindings: list | None = None) -> dict:
-    query_params = {
-        "api_key": site.agent_api_key,
-        "sql": sql,
-        "bindings": json.dumps(bindings or []),
-    }
+    payload = json.dumps(
+        {
+            "api_key": site.agent_api_key,
+            "sql": _compact_sql(sql),
+            "bindings": bindings or [],
+        }
+    )
+    query_params = {"q": b64encode(payload.encode()).decode()}
     client = _client_no_verify if site.tls_skip_verify else _client
     req = client.build_request("GET", site.agent_url, params=query_params)
     resp = await client.send(req)
