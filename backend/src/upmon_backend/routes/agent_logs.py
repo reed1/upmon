@@ -45,11 +45,7 @@ def _load_agent_config(path: str) -> AgentConfig:
     link_mtime = os.lstat(path).st_mtime
     real_mtime = Path(path).stat().st_mtime
 
-    if (
-        _cache.config is not None
-        and link_mtime == _cache.link_mtime
-        and real_mtime == _cache.real_mtime
-    ):
+    if _cache.config is not None and link_mtime == _cache.link_mtime and real_mtime == _cache.real_mtime:
         return _cache.config
 
     with open(path) as f:
@@ -110,12 +106,14 @@ async def _query_agent(site, sql: str, bindings: list | None = None) -> dict:
         "bindings": json.dumps(bindings or []),
     }
     client = _client_no_verify if site.tls_skip_verify else _client
-    resp = await client.get(site.agent_url, params=query_params)
+    req = client.build_request("GET", site.agent_url, params=query_params)
+    resp = await client.send(req)
+    url = str(req.url)
     if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Agent error: {resp.text}")
+        raise HTTPException(status_code=502, detail=f"Agent error: {resp.text}\nURL: {url}")
     data = resp.json()
     if data.get("error"):
-        raise HTTPException(status_code=502, detail=f"Agent error: {data['error']}")
+        raise HTTPException(status_code=502, detail=f"Agent error: {data['error']}\nURL: {url}")
     return data["result"]
 
 

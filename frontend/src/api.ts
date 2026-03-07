@@ -9,6 +9,11 @@ import type {
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const API_KEY = import.meta.env.VITE_API_KEY;
 
+async function throwApiError(res: Response): never {
+  const body = await res.text();
+  throw new Error(`API error ${res.status}: ${body}`);
+}
+
 export async function fetchStatus(projectId?: string): Promise<SiteStatus[]> {
   const url = new URL('/api/v1/status', BASE_URL);
   if (projectId) url.searchParams.set('project_id', projectId);
@@ -17,7 +22,7 @@ export async function fetchStatus(projectId?: string): Promise<SiteStatus[]> {
     headers: { 'x-api-key': API_KEY },
   });
 
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await throwApiError(res);
   return res.json();
 }
 
@@ -33,7 +38,7 @@ export async function fetchDailySummary(
     headers: { 'x-api-key': API_KEY },
   });
 
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await throwApiError(res);
   return res.json();
 }
 
@@ -42,7 +47,7 @@ export async function fetchAccessLogSites(): Promise<AccessLogSiteInfo[]> {
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await throwApiError(res);
   return res.json();
 }
 
@@ -69,7 +74,7 @@ export async function fetchAccessLogStats(
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await throwApiError(res);
   return res.json();
 }
 
@@ -100,6 +105,6 @@ export async function fetchAccessLogEntries(
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) await throwApiError(res);
   return res.json();
 }
