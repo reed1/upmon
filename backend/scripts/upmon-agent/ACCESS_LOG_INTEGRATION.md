@@ -87,6 +87,20 @@ CREATE INDEX IF NOT EXISTS idx_access_log_unexpected_exceptions
 
 Wrap every request. On completion (success or error), insert a row into `access_log`.
 
+### Body sanitization
+
+Before logging, redact sensitive fields from the request body. Check your app's login, reset-password, and change-password routes to identify the exact field names. Common ones:
+
+```python
+SENSITIVE_BODY_FIELDS = {"password", "password_confirmation", "password_new", "current_password"}
+
+
+def sanitize_body(body: dict | None) -> dict | None:
+    if not body:
+        return body
+    return {k: "[REDACTED]" if k in SENSITIVE_BODY_FIELDS else v for k, v in body.items()}
+```
+
 ### Skip rules
 
 Do **not** log when any of these are true:
@@ -156,19 +170,24 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
             client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
             query_params = dict(request.query_params)
 
+            # request.state.log_body is set manually in the app's core module (dict or None)
+            body = sanitize_body(getattr(request.state, "log_body", None))
+            body_insert = json.dumps(body) if body else None
+
             self.db.execute(
                 """INSERT INTO access_log (
-                    epoch_sec, client_ip, method, path, query, user_id,
+                    epoch_sec, client_ip, method, path, query, body, user_id,
                     status_code, duration_ms, user_agent, os, client_type,
                     app_version, exception_class, exception_message,
                     exception_is_unexpected, exception_traceback
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     int(time.time()),
                     client_ip,
                     request.method,
                     request.url.path,
                     json.dumps(query_params) if query_params else None,
+                    body_insert,
                     user_id,
                     status_code,
                     duration_ms,
