@@ -1,12 +1,10 @@
-import asyncio
 import json
 import logging
 import os
-import re
 from base64 import b64encode
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime as dt, timezone
+from datetime import datetime as dt
 from pathlib import Path
 
 import httpx
@@ -71,29 +69,6 @@ router = APIRouter(
 )
 
 
-def _time_conditions(start: str, end: str | None) -> tuple[list[str], list]:
-    conditions = ["epoch_sec >= ?"]
-    bindings: list = [int(dt.fromisoformat(start).timestamp())]
-    if end is not None:
-        conditions.append("epoch_sec <= ?")
-        bindings.append(int(dt.fromisoformat(end).timestamp()))
-    return conditions, bindings
-
-
-def _span_minutes(start: str, end: str | None) -> float:
-    start_dt = dt.fromisoformat(start)
-    end_dt = dt.fromisoformat(end) if end is not None else dt.now(timezone.utc)
-    return (end_dt - start_dt).total_seconds() / 60
-
-
-def _bucket_format(span_minutes: float) -> str:
-    if span_minutes < 180:
-        return "%Y-%m-%dT%H:%M:00"
-    if span_minutes < 4320:
-        return "%Y-%m-%dT%H:00:00"
-    return "%Y-%m-%dT00:00:00"
-
-
 def _get_site(config: AgentConfig, project_id: str, site_key: str):
     for site in config.sites:
         if site.project_id == project_id and site.site_key == site_key:
@@ -101,18 +76,17 @@ def _get_site(config: AgentConfig, project_id: str, site_key: str):
     raise HTTPException(status_code=404, detail=f"Unknown site: {project_id}/{site_key}")
 
 
-def _compact_sql(sql: str) -> str:
-    return re.sub(r"\s+", " ", sql).strip()
+def _to_epoch(iso: str) -> int:
+    return int(dt.fromisoformat(iso).timestamp())
 
 
-async def _query_agent(site, sql: str, bindings: list | None = None) -> dict:
-    payload = json.dumps(
-        {
-            "api_key": site.agent_api_key,
-            "sql": _compact_sql(sql),
-            "bindings": bindings or [],
-        }
-    )
+async def _query_agent(site, view: str, params: dict) -> dict:
+    payload = json.dumps({
+        "command": "query",
+        "api_key": site.agent_api_key,
+        "view": view,
+        **params,
+    })
     query_params = {"q": b64encode(payload.encode()).decode()}
     client = _client_no_verify if site.tls_skip_verify else _client
     req = client.build_request("GET", site.agent_url, params=query_params)
@@ -153,9 +127,6 @@ async def list_sites(config: AgentConfig = Depends(get_agent_config)) -> list[di
     return [{"project_id": site.project_id, "site_key": site.site_key} for site in config.sites]
 
 
-_LOGS_ORDER_COLUMNS = {"epoch_sec", "method", "path", "status_code", "duration_ms"}
-
-
 @router.get("/sites/{project_id}/{site_key}/logs")
 async def get_logs(
     project_id: str,
@@ -171,33 +142,16 @@ async def get_logs(
     config: AgentConfig = Depends(get_agent_config),
 ) -> dict:
     site = _get_site(config, project_id, site_key)
-
-    conditions, bindings = _time_conditions(start, end)
-
-    if exception_type == "none":
-        conditions.append("exception_is_unexpected IS NULL")
-    elif exception_type == "expected":
-        conditions.append("exception_is_unexpected = 0")
-    elif exception_type == "unexpected":
-        conditions.append("exception_is_unexpected = 1")
-    if os is not None:
-        conditions.append("os = ?")
-        bindings.append(os)
-    if client_type is not None:
-        conditions.append("client_type = ?")
-        bindings.append(client_type)
-    if method is not None:
-        conditions.append("method = ?")
-        bindings.append(method)
-
-    if order_by not in _LOGS_ORDER_COLUMNS:
-        raise HTTPException(status_code=400, detail=f"Invalid order_by: {order_by}")
-    direction = "ASC" if order_dir == "asc" else "DESC"
-
-    where = f"WHERE {' AND '.join(conditions)}"
-    sql = f"SELECT * FROM access_log {where} ORDER BY {order_by} {direction} LIMIT 100"
-
-    result = await _query_agent(site, sql, bindings)
+    result = await _query_agent(site, "logs", {
+        "start": _to_epoch(start),
+        "end": _to_epoch(end) if end else None,
+        "exception_type": exception_type,
+        "os": os,
+        "client_type": client_type,
+        "method": method,
+        "order_by": order_by,
+        "order_dir": order_dir,
+    })
     return _parse_json_columns(result)
 
 
@@ -214,105 +168,29 @@ async def get_stats(
     config: AgentConfig = Depends(get_agent_config),
 ) -> dict:
     site = _get_site(config, project_id, site_key)
-
-    time_conditions, time_bindings = _time_conditions(start, end)
-    time_where = f"WHERE {' AND '.join(time_conditions)}"
-
-    filtered_conditions = list(time_conditions)
-    filtered_bindings = list(time_bindings)
-    if exception_type == "none":
-        filtered_conditions.append("exception_is_unexpected IS NULL")
-    elif exception_type == "expected":
-        filtered_conditions.append("exception_is_unexpected = 0")
-    elif exception_type == "unexpected":
-        filtered_conditions.append("exception_is_unexpected = 1")
-    if os is not None:
-        filtered_conditions.append("os = ?")
-        filtered_bindings.append(os)
-    if client_type is not None:
-        filtered_conditions.append("client_type = ?")
-        filtered_bindings.append(client_type)
-    if method is not None:
-        filtered_conditions.append("method = ?")
-        filtered_bindings.append(method)
-    filtered_where = f"WHERE {' AND '.join(filtered_conditions)}"
-
-    summary_sql = f"""
-        SELECT
-            COUNT(*) AS total_requests,
-            ROUND(AVG(duration_ms), 2) AS avg_duration_ms,
-            ROUND(MIN(duration_ms), 2) AS min_duration_ms,
-            ROUND(MAX(duration_ms), 2) AS max_duration_ms,
-            SUM(CASE WHEN exception_class IS NOT NULL THEN 1 ELSE 0 END) AS total_exceptions
-        FROM access_log {filtered_where}
-    """
-
-    distributions_sql = f"""
-        WITH base AS (
-            SELECT * FROM access_log {time_where}
-        )
-        SELECT 'exception_type' AS dist,
-            CASE
-                WHEN exception_is_unexpected IS NULL THEN 'none'
-                WHEN exception_is_unexpected = 0 THEN 'expected'
-                ELSE 'unexpected'
-            END AS value,
-            COUNT(*) AS count
-        FROM base
-        GROUP BY value
-
-        UNION ALL
-        SELECT 'method', method, COUNT(*)
-        FROM base
-        GROUP BY method
-
-        UNION ALL
-        SELECT 'os', os, COUNT(*)
-        FROM base
-        GROUP BY os
-
-        UNION ALL
-        SELECT 'client_type', client_type, COUNT(*)
-        FROM base
-        GROUP BY client_type
-    """
-
-    bucket_fmt = _bucket_format(_span_minutes(start, end))
-
-    volume_sql = f"""
-        WITH buckets AS (
-            SELECT
-                strftime('{bucket_fmt}', epoch_sec, 'unixepoch') AS bucket,
-                COUNT(*) AS total,
-                SUM(exception_class IS NOT NULL) AS exception
-            FROM access_log {filtered_where}
-            GROUP BY bucket
-        )
-        SELECT bucket, total - exception AS ok, exception
-        FROM buckets
-        ORDER BY bucket
-    """
-
-    summary, distributions, volume = await asyncio.gather(
-        _query_agent(site, summary_sql, filtered_bindings),
-        _query_agent(site, distributions_sql, time_bindings),
-        _query_agent(site, volume_sql, filtered_bindings),
-    )
+    result = await _query_agent(site, "stats", {
+        "start": _to_epoch(start),
+        "end": _to_epoch(end) if end else None,
+        "exception_type": exception_type,
+        "os": os,
+        "client_type": client_type,
+        "method": method,
+    })
 
     (
         exception_distribution,
         method_distribution,
         os_distribution,
         client_type_distribution,
-    ) = _split_distributions(distributions)
+    ) = _split_distributions(result["distributions"])
 
     return {
-        "summary": summary,
+        "summary": result["summary"],
         "exception_distribution": exception_distribution,
         "method_distribution": method_distribution,
         "os_distribution": os_distribution,
         "client_type_distribution": client_type_distribution,
-        "volume": volume,
+        "volume": result["volume"],
     }
 
 

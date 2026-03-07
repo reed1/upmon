@@ -15,30 +15,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ENRICHED_FILE = Path.home() / ".cache/rlocal/rofi-vscode/upmon_agents.enriched.json"
 AGENT_SCRIPT = REPO_ROOT / "backend/scripts/upmon-agent/main.py"
-DEFAULT_RETENTION_DAYS = 360
 MANUAL_DEPLOY_DIR = Path("/tmp/upmon-agents")
-
-CLEANUP_SERVICE = """\
-[Unit]
-Description=Upmon agent — clean up old access log entries
-
-[Service]
-Type=oneshot
-ExecStart=python3 {agent_path}/main.py cleanup
-"""
-
-CLEANUP_TIMER = """\
-[Unit]
-Description=Daily cleanup of old access log entries
-
-[Timer]
-OnCalendar=daily
-Persistent=true
-RandomizedDelaySec=3600
-
-[Install]
-WantedBy=timers.target
-"""
 
 
 def step(msg: str):
@@ -74,7 +51,6 @@ def generate_config(sites: list[dict]) -> str:
             {
                 "api_key": s["agent_api_key"],
                 "db_path": s["db_path"],
-                "retention_days": s.get("retention_days", DEFAULT_RETENTION_DAYS),
             }
             for s in sites
         ]
@@ -84,17 +60,10 @@ def generate_config(sites: list[dict]) -> str:
 
 def deploy_to_host(ssh_host: str, agent_path: str, tmpdir: Path):
     config_file = tmpdir / f"{ssh_host}.json"
-    service_file = tmpdir / f"{ssh_host}.upmon-agent-cleanup.service"
-    timer_file = tmpdir / f"{ssh_host}.upmon-agent-cleanup.timer"
 
-    systemd_path = agent_path.replace("~/", "%h/", 1) if agent_path.startswith("~") else agent_path
-    service_file.write_text(CLEANUP_SERVICE.format(agent_path=systemd_path))
-    timer_file.write_text(CLEANUP_TIMER)
-
-    systemd_dir = "~/.config/systemd/user"
     step(f"  Creating directories on {ssh_host}")
     subprocess.run(
-        ["ssh", ssh_host, f"mkdir -p {agent_path} {systemd_dir}"],
+        ["ssh", ssh_host, f"mkdir -p {agent_path}"],
         check=True,
     )
     step(f"  Copying agent script + config to {ssh_host}")
@@ -108,23 +77,6 @@ def deploy_to_host(ssh_host: str, agent_path: str, tmpdir: Path):
     )
     subprocess.run(
         ["scp", str(config_file), f"{ssh_host}:{agent_path}/config.json"],
-        check=True,
-    )
-    subprocess.run(
-        ["scp", str(service_file), f"{ssh_host}:{systemd_dir}/upmon-agent-cleanup.service"],
-        check=True,
-    )
-    subprocess.run(
-        ["scp", str(timer_file), f"{ssh_host}:{systemd_dir}/upmon-agent-cleanup.timer"],
-        check=True,
-    )
-    step(f"  Enabling systemd timer on {ssh_host}")
-    subprocess.run(
-        [
-            "ssh",
-            ssh_host,
-            "systemctl --user daemon-reload && systemctl --user enable --now upmon-agent-cleanup.timer",
-        ],
         check=True,
     )
 

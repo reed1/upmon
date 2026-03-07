@@ -1,16 +1,28 @@
 # Upmon Agent
 
-Read-only SQLite query proxy deployed to remote hosts. The backend invokes it over SSH to fetch access log data. Deployed via Ansible as a Jinja2 template — API keys are baked in at deploy time.
+Read-only SQLite query agent deployed to remote hosts. The backend sends named view requests with filter parameters; the agent builds and executes SQL internally. Deployed via Ansible as a Jinja2 template — API keys are baked in at deploy time.
 
 ## Usage
 
+All commands are sent via HTTP as a base64-encoded JSON payload in the `q` query parameter.
+
 ```
-upmon-agent query '{"api_key": "...", "sql": "SELECT ...", "bindings": [...]}'
-upmon-agent cleanup
+upmon-agent '{"q": "<base64-encoded JSON>"}'
 ```
 
-- `query` — executes read-only SQL against the site's SQLite database, returns `{"result": {"columns": [...], "rows": [...]}}`.
-- `cleanup` — deletes rows older than `retention_days` from all configured sites.
+### Commands
+
+**`query`** — dispatches to a named view, builds SQL internally, executes against the site's read-only SQLite database.
+
+Payload: `{"command": "query", "api_key": "...", "view": "logs|stats", ...}`
+
+Views:
+- **`logs`** — returns recent access log rows. Params: `start`, `end`, `exception_type`, `os`, `client_type`, `method`, `order_by`, `order_dir`.
+- **`stats`** — returns summary, distributions, and volume data. Params: `start`, `end`, `exception_type`, `os`, `client_type`, `method`.
+
+**`cleanup`** — deletes rows older than `retention_days` for the authenticated site. Returns `{"deleted": <count>}`.
+
+Payload: `{"command": "cleanup", "api_key": "...", "retention_days": <int>}`
 
 ## Config
 

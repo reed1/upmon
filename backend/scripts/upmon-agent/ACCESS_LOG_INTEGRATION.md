@@ -40,7 +40,7 @@ def health_agent(q: str = Query()):
 
     args = json.dumps({"q": q})
     result = subprocess.run(
-        ["python3", agent_path, "query", args],
+        ["python3", agent_path, args],
         capture_output=True,
         text=True,
         timeout=10,
