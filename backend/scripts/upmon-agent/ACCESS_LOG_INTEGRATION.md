@@ -64,61 +64,133 @@ Do **not** log when any of these are true:
 - Path is `/health` or `/health/agent` (infrastructure noise from upmon polling)
 - Status code is `404` **and** `user_id` is null (spam/scanner traffic)
 
-### Pseudocode
+### Example (FastAPI)
 
+```python
+import json
+import sqlite3
+import time
+import traceback
+
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.exceptions import HTTPException
+
+
+SKIP_PATHS = {"/health", "/health/agent"}
+
+
+class AccessLogMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, db: sqlite3.Connection):
+        super().__init__(app)
+        self.db = db
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        if request.method == "OPTIONS" or request.url.path in SKIP_PATHS:
+            return await call_next(request)
+
+        start = time.perf_counter()
+        status_code = 500
+        exc_class = None
+        exc_message = None
+        exc_is_unexpected = None
+        exc_traceback = None
+
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            return response
+        except HTTPException as e:
+            status_code = e.status_code
+            exc_class = type(e).__name__
+            exc_message = e.detail
+            exc_is_unexpected = 0
+            raise
+        except Exception as e:
+            status_code = 500
+            exc_class = type(e).__name__
+            exc_message = str(e)
+            exc_is_unexpected = 1
+            exc_traceback = json.dumps(traceback.format_exception(e))
+            raise
+        finally:
+            user_id = getattr(request.state, "user_id", None)
+
+            if status_code == 404 and user_id is None:
+                return
+
+            os, client_type = get_client_info(request)
+            duration_ms = round((time.perf_counter() - start) * 1000, 2)
+            forwarded = request.headers.get("x-forwarded-for")
+            client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
+            query_params = dict(request.query_params)
+
+            self.db.execute(
+                """INSERT INTO access_log (
+                    epoch_sec, client_ip, method, path, query, user_id,
+                    status_code, duration_ms, user_agent, os, client_type,
+                    app_version, exception_class, exception_message,
+                    exception_is_unexpected, exception_traceback
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    int(time.time()),
+                    client_ip,
+                    request.method,
+                    request.url.path,
+                    json.dumps(query_params) if query_params else None,
+                    user_id,
+                    status_code,
+                    duration_ms,
+                    request.headers.get("user-agent"),
+                    os,
+                    client_type,
+                    request.headers.get("x-app-version"),
+                    exc_class,
+                    exc_message,
+                    exc_is_unexpected,
+                    exc_traceback,
+                ),
+            )
+            self.db.commit()
+
+
+def get_client_info(request: Request) -> tuple[str | None, str]:
+    """Returns (os, client_type).
+
+    - Native apps send X-Client-Type: app and X-OS: android|ios.
+    - Browsers are detected from User-Agent; client_type defaults to "browser".
+    """
+    client_type = request.headers.get("x-client-type")
+
+    if client_type == "app":
+        return request.headers.get("x-os"), "app"
+
+    return parse_os_from_user_agent(request.headers.get("user-agent")), "browser"
+
+
+def parse_os_from_user_agent(ua: str | None) -> str | None:
+    if not ua:
+        return None
+    if "Android" in ua:
+        return "android"
+    if "iPhone" in ua or "iPad" in ua:
+        return "ios"
+    if "Macintosh" in ua:
+        return "macos"
+    if "Windows" in ua:
+        return "windows"
+    if "CrOS" in ua:
+        return "chromeos"
+    if "Linux" in ua:
+        return "linux"
+    return None
 ```
-on_request(req):
-    if req.method == "OPTIONS" or req.path in ["/health", "/health/agent"]:
-        return pass_through(req)
 
-    start = now()
+On the frontend, send `X-Client-Type` and `X-OS` headers (Capacitor example):
 
-    try:
-        response = handle(req)
-        status_code = response.status
-        exception = null
-    catch error:
-        status_code = error.status or 500
-        is_unexpected = error is NOT a known HTTP exception
-        exception = {
-            class:     error.class_name,
-            message:   error.message,
-            is_unexpected: is_unexpected,
-            traceback: is_unexpected ? error.stack_frames : null
-        }
-        re-raise error
-
-    finally:
-        user_id = get_authenticated_user_id(req)  -- null if unauthenticated
-
-        if status_code == 404 and user_id is null:
-            return
-
-        insert into access_log {
-            epoch_sec:    unix_timestamp(),
-            client_ip:    req.headers["x-forwarded-for"].split(",")[0] or req.remote_ip,
-            method:       req.method,
-            path:         req.path,
-            query:        json(req.query_params) or null,
-            body:         json(req.body) or null,
-            user_id:      user_id,
-            status_code:  status_code,
-            duration_ms:  round(now() - start, 2),
-            user_agent:   req.headers["user-agent"],
-            os:           detect_os(req),
-            client_type:  req.headers["x-client-type"] or "browser",
-            app_version:  req.headers["x-app-version"],
-            files:        json(uploaded_files_metadata) or null,
-            exception_*:  from exception above
-        }
+```ts
+headers: {
+  'X-Client-Type': Capacitor.isNativePlatform() ? 'app' : 'browser',
+  ...(Capacitor.isNativePlatform() && { 'X-OS': Capacitor.getPlatform() }),
+}
 ```
-
-### OS detection
-
-- If `x-client-type` is `"app"`: trust `x-os` header (Capacitor knows the native OS).
-- If `x-client-type` is `"browser"` (or absent, defaulting to `"browser"`): parse user-agent → `"android"`, `"ios"`, `"macos"`, `"windows"`, `"linux"`, or null.
-
-### Client type
-
-- From `x-client-type` header: `"app"` (native) or `"browser"`.
-- Defaults to `"browser"` when the header is absent.
