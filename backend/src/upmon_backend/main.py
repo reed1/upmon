@@ -6,10 +6,12 @@ from fastapi.responses import RedirectResponse
 
 from . import db
 from .config import Settings
+from .routes.agent_cleanup import router as agent_cleanup_router
 from .routes.agent_errors import router as agent_errors_router
 from .routes.agent_logs import router as agent_logs_router
 from .routes.health import router as health_router
 from .routes.monitors import router as monitors_router
+from .scheduler import create_scheduler
 from .spa import SPAStaticFiles
 
 logger = logging.getLogger("upmon_backend")
@@ -17,11 +19,18 @@ logger = logging.getLogger("upmon_backend")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.pool = await db.create_pool(app.state.settings.database_url)
-    logger.info("database ready")
+    settings = app.state.settings
+    app.state.pool = await db.create_pool(settings.database_url)
+    await db.run_init(app.state.pool)
+    logger.info("schema ready")
+
+    scheduler = create_scheduler(app.state.pool, settings.agent_config)
+    scheduler.start()
+    logger.info("scheduler started")
 
     yield
 
+    scheduler.shutdown(wait=False)
     await app.state.pool.close()
 
 
@@ -45,6 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(monitors_router)
     app.include_router(agent_logs_router)
     app.include_router(agent_errors_router)
+    app.include_router(agent_cleanup_router)
 
     app.mount(
         "/frontend",

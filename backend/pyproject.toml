@@ -7,6 +7,7 @@ dependencies = [
     "asyncpg",
     "httpx",
     "pydantic-settings",
+    "apscheduler",
 ]
 
 [dependency-groups]

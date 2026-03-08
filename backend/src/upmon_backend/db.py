@@ -1,18 +1,23 @@
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 import asyncpg
 
 from .models import DayChecks, HourlySummary
+
+_INIT_SQL = (Path(__file__).parent / "init.sql").read_text()
 
 
 async def create_pool(database_url: str) -> asyncpg.Pool:
     return await asyncpg.create_pool(database_url, min_size=1, max_size=5)
 
 
-async def get_monitor_statuses(
-    pool: asyncpg.Pool, project_id: str | None
-) -> list[dict]:
+async def run_init(pool: asyncpg.Pool):
+    await pool.execute(_INIT_SQL)
+
+
+async def get_monitor_statuses(pool: asyncpg.Pool, project_id: str | None) -> list[dict]:
     return await pool.fetch(
         """SELECT project_id, site_key, url, status_code, response_ms,
                   is_up, error_type, error_message, last_checked_at, last_up_at
@@ -38,9 +43,7 @@ def build_hourly_summary(rows: list[HourlyRow]) -> HourlySummary:
         date = row.hour.date()
         hour_idx = row.hour.hour
 
-        days_vec = result.setdefault(row.project_id, {}).setdefault(
-            row.site_key, []
-        )
+        days_vec = result.setdefault(row.project_id, {}).setdefault(row.site_key, [])
 
         if days_vec and days_vec[-1].day == date:
             day_entry = days_vec[-1]
@@ -53,9 +56,7 @@ def build_hourly_summary(rows: list[HourlyRow]) -> HourlySummary:
     return result
 
 
-async def get_hourly_summary(
-    pool: asyncpg.Pool, project_id: str | None, days: int
-) -> HourlySummary:
+async def get_hourly_summary(pool: asyncpg.Pool, project_id: str | None, days: int) -> HourlySummary:
     rows = await pool.fetch(
         """SELECT project_id, site_key,
                   time_bucket('1 hour', checked_at) AS hour,

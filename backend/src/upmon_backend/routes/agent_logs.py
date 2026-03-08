@@ -24,6 +24,7 @@ class AgentSite(BaseModel):
     site_key: str
     agent_url: str
     agent_api_key: str
+    retention_days: int = 360
     tls_skip_verify: bool = False
 
 
