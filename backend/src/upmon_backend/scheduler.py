@@ -14,7 +14,7 @@ from .routes.agent_logs import AgentSite, _load_agent_config, _query_agent
 logger = logging.getLogger("upmon_backend.scheduler")
 
 _INSERT_LOG_SQL = """
-INSERT INTO agent_cleanup_log
+INSERT INTO agent_daily_cleanup
     (executed_at, project_id, site_key, agent_url, retention_days,
      status_code, deleted_count, duration_ms, error_message)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -89,11 +89,11 @@ async def run_cleanup(pool, agent_config_path: str):
         await _cleanup_site(pool, site)
 
     retain = 360 * len(config.sites)
-    max_id = await pool.fetchval("SELECT MAX(id) FROM agent_cleanup_log")
+    max_id = await pool.fetchval("SELECT MAX(id) FROM agent_daily_cleanup")
     if max_id is not None:
         cutoff = max_id - retain
         if cutoff > 0:
-            deleted = await pool.execute("DELETE FROM agent_cleanup_log WHERE id < $1", cutoff)
+            deleted = await pool.execute("DELETE FROM agent_daily_cleanup WHERE id < $1", cutoff)
             logger.info("Cleanup log self-cleanup: %s (cutoff id %d)", deleted, cutoff)
 
     logger.info("Agent cleanup complete")

@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS agent_cleanup_log (
+CREATE TABLE IF NOT EXISTS agent_daily_cleanup (
     id BIGSERIAL PRIMARY KEY,
     executed_at TIMESTAMPTZ NOT NULL,
     project_id TEXT NOT NULL,
@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS agent_cleanup_log (
     error_message TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_agent_cleanup_log_site
-    ON agent_cleanup_log (project_id, site_key, id DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_daily_cleanup_site
+    ON agent_daily_cleanup (project_id, site_key, id DESC);
 
 CREATE TABLE IF NOT EXISTS agent_daily_error_count (
     id BIGSERIAL PRIMARY KEY,
