@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 
+from . import SELF_CLEANUP_RETAIN_PER_SITE
 from ..routes.agent_logs import AgentSite, _load_agent_config
 
 logger = logging.getLogger("upmon_backend.jobs.cleanup")
@@ -86,7 +87,7 @@ async def run_cleanup(pool, agent_config_path: str):
     for site in config.sites:
         await _cleanup_site(pool, site)
 
-    retain = 360 * len(config.sites)
+    retain = SELF_CLEANUP_RETAIN_PER_SITE * len(config.sites)
     max_id = await pool.fetchval("SELECT MAX(id) FROM agent_daily_cleanup")
     if max_id is not None:
         cutoff = max_id - retain

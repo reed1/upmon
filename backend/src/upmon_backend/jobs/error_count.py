@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from . import SELF_CLEANUP_RETAIN_PER_SITE
 from ..routes.agent_logs import AgentSite, _load_agent_config, _query_agent
 
 logger = logging.getLogger("upmon_backend.jobs.error_count")
@@ -27,7 +28,11 @@ async def _count_errors_for_site(pool, site: AgentSite, yesterday):
 
     try:
         result = await _query_agent(site, "error_count", {"start": start_epoch, "end": end_epoch})
-        error_count = result["rows"][0][0]
+        rows = result.get("rows", [])
+        if rows and rows[0]:
+            error_count = rows[0][0]
+        else:
+            agent_error = "Agent returned no rows for error_count query"
     except Exception as e:
         agent_error = str(e)
         logger.error("Error count failed for %s/%s: %s", site.project_id, site.site_key, e)
@@ -60,7 +65,7 @@ async def run_error_count(pool, agent_config_path: str):
     for site in config.sites:
         await _count_errors_for_site(pool, site, yesterday)
 
-    retain = 360 * len(config.sites)
+    retain = SELF_CLEANUP_RETAIN_PER_SITE * len(config.sites)
     max_id = await pool.fetchval("SELECT MAX(id) FROM agent_daily_error_count")
     if max_id is not None:
         cutoff = max_id - retain
