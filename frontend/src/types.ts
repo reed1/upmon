@@ -36,3 +36,13 @@ export interface AccessLogEntries {
   columns: string[];
   rows: any[][];
 }
+
+export interface CleanupLogEntry {
+  id: number;
+  executed_at: string;
+  retention_days: number;
+  status_code: number | null;
+  deleted_count: number | null;
+  duration_ms: number;
+  error: string | null;
+}

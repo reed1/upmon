@@ -10,3 +10,6 @@ CREATE TABLE IF NOT EXISTS agent_cleanup_log (
     duration_ms INTEGER NOT NULL,
     error TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_agent_cleanup_log_site
+    ON agent_cleanup_log (project_id, site_key, id DESC);
