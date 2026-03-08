@@ -352,14 +352,18 @@ onMounted(() => {
               </td>
               <td class="px-3 py-2">{{ log.retention_days }}d</td>
               <td class="px-3 py-2">
-                <span :class="log.error ? 'text-red-400' : 'text-emerald-400'">
+                <span
+                  :class="
+                    log.error_message ? 'text-red-400' : 'text-emerald-400'
+                  "
+                >
                   {{ log.status_code ?? '-' }}
                 </span>
               </td>
               <td class="px-3 py-2">{{ log.deleted_count ?? '-' }}</td>
               <td class="px-3 py-2 text-right">{{ log.duration_ms }}ms</td>
               <td class="px-3 py-2 max-w-xs truncate text-red-400">
-                {{ log.error ?? '' }}
+                {{ log.error_message ?? '' }}
               </td>
             </tr>
           </tbody>

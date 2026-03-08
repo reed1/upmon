@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS agent_cleanup_log (
     status_code INTEGER,
     deleted_count INTEGER,
     duration_ms INTEGER NOT NULL,
-    error TEXT
+    error_message TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_cleanup_log_site

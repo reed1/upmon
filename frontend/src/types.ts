@@ -44,5 +44,5 @@ export interface CleanupLogEntry {
   status_code: number | null;
   deleted_count: number | null;
   duration_ms: number;
-  error: string | null;
+  error_message: string | null;
 }

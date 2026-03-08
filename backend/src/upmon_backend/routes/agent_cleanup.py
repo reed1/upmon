@@ -22,7 +22,7 @@ async def get_cleanup_logs(
     pool = request.app.state.pool
     rows = await pool.fetch(
         """SELECT id, executed_at, project_id, site_key, agent_url,
-                  retention_days, status_code, deleted_count, duration_ms, error
+                  retention_days, status_code, deleted_count, duration_ms, error_message
            FROM agent_cleanup_log
            WHERE executed_at > NOW() - make_interval(days => $1)
              AND ($2::text IS NULL OR project_id = $2)
@@ -45,7 +45,7 @@ async def get_site_cleanup_logs(
     pool = request.app.state.pool
     rows = await pool.fetch(
         """SELECT id, executed_at, retention_days,
-                  status_code, deleted_count, duration_ms, error
+                  status_code, deleted_count, duration_ms, error_message
            FROM agent_cleanup_log
            WHERE project_id = $1 AND site_key = $2
            ORDER BY id DESC

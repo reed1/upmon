@@ -16,7 +16,7 @@ logger = logging.getLogger("upmon_backend.scheduler")
 _INSERT_LOG_SQL = """
 INSERT INTO agent_cleanup_log
     (executed_at, project_id, site_key, agent_url, retention_days,
-     status_code, deleted_count, duration_ms, error)
+     status_code, deleted_count, duration_ms, error_message)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 """
 
