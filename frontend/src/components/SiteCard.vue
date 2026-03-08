@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { SiteStatus, DayEntry } from '../types';
+import type { SiteStatus, SiteDailySummary } from '../types';
 import SiteCardContent from './SiteCardContent.vue';
 
 const props = defineProps<{
   status: SiteStatus;
-  dailySummary: DayEntry[];
+  siteSummary?: SiteDailySummary;
   hasAccessLogs: boolean;
 }>();
 
@@ -40,7 +40,8 @@ function formatDay(dateStr: string): string {
 }
 
 const sortedDays = computed(() => {
-  return [...props.dailySummary].sort((a, b) => b.day.localeCompare(a.day));
+  const days = props.siteSummary?.days ?? [];
+  return [...days].sort((a, b) => b.day.localeCompare(a.day));
 });
 </script>
 
@@ -57,10 +58,13 @@ const sortedDays = computed(() => {
       :cell-color="cellColor"
       :cell-tooltip="cellTooltip"
       :time-ago="timeAgo"
+      :site-summary="siteSummary"
     />
     <div class="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
       <svg class="size-3.5" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1H2V3Zm0 3v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6H2Zm3 2h6v1H5V8Zm0 3h4v1H5v-1Z"/>
+        <path
+          d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1H2V3Zm0 3v7a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6H2Zm3 2h6v1H5V8Zm0 3h4v1H5v-1Z"
+        />
       </svg>
       <span>Access Logs</span>
       <span>&rarr;</span>
@@ -74,6 +78,7 @@ const sortedDays = computed(() => {
       :cell-color="cellColor"
       :cell-tooltip="cellTooltip"
       :time-ago="timeAgo"
+      :site-summary="siteSummary"
     />
   </div>
 </template>

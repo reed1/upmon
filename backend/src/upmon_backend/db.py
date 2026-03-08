@@ -4,7 +4,7 @@ from pathlib import Path
 
 import asyncpg
 
-from .models import DayChecks, HourlySummary
+from .models import DayChecks, HourlySummary, SiteSummaryEntry
 
 _INIT_SQL = (Path(__file__).parent / "init.sql").read_text()
 
@@ -37,19 +37,19 @@ class HourlyRow:
 
 
 def build_hourly_summary(rows: list[HourlyRow]) -> HourlySummary:
-    result: dict[str, dict[str, list[DayChecks]]] = {}
+    result: dict[str, dict[str, SiteSummaryEntry]] = {}
 
     for row in rows:
         date = row.hour.date()
         hour_idx = row.hour.hour
 
-        days_vec = result.setdefault(row.project_id, {}).setdefault(row.site_key, [])
+        entry = result.setdefault(row.project_id, {}).setdefault(row.site_key, SiteSummaryEntry(days=[]))
 
-        if days_vec and days_vec[-1].day == date:
-            day_entry = days_vec[-1]
+        if entry.days and entry.days[-1].day == date:
+            day_entry = entry.days[-1]
         else:
             day_entry = DayChecks(day=date, checks=[None] * 24)
-            days_vec.append(day_entry)
+            entry.days.append(day_entry)
 
         day_entry.checks[hour_idx] = 1 if row.all_up else 0
 

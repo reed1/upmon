@@ -21,4 +21,10 @@ class DayChecks(BaseModel):
     checks: list[int | None]
 
 
-type HourlySummary = dict[str, dict[str, list[DayChecks]]]
+class SiteSummaryEntry(BaseModel):
+    days: list[DayChecks]
+    cleanup_ok: bool | None = None
+    errors_ok: bool | None = None
+
+
+type HourlySummary = dict[str, dict[str, SiteSummaryEntry]]

@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import type { SiteStatus, DayEntry, AccessLogSiteInfo } from '../types';
+import type {
+  SiteStatus,
+  DayEntry,
+  AccessLogSiteInfo,
+  SiteDailySummary,
+} from '../types';
 import SiteCard from './SiteCard.vue';
 
 defineProps<{
   projectId: string;
   sites: SiteStatus[];
-  dailySummary: Record<string, DayEntry[]>;
+  dailySummary: Record<string, SiteDailySummary>;
   accessLogSites: AccessLogSiteInfo[];
 }>();
 </script>
@@ -22,7 +27,7 @@ defineProps<{
         v-for="site in sites"
         :key="site.site_key"
         :status="site"
-        :daily-summary="dailySummary[site.site_key] ?? []"
+        :site-summary="dailySummary[site.site_key]"
         :has-access-logs="
           accessLogSites.some(
             (a) =>

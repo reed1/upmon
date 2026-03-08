@@ -20,6 +20,15 @@ let intervalId: ReturnType<typeof setInterval> | null = null;
 
 const upCount = computed(() => statuses.value.filter((s) => s.is_up).length);
 const downCount = computed(() => statuses.value.filter((s) => !s.is_up).length);
+const errorCount = computed(() => {
+  let count = 0;
+  for (const sites of Object.values(dailySummary.value)) {
+    for (const entry of Object.values(sites)) {
+      if (entry.cleanup_ok === false || entry.errors_ok === false) count++;
+    }
+  }
+  return count;
+});
 
 const projectIds = computed(() => {
   const ids = new Set(statuses.value.map((s) => s.project_id));
@@ -86,6 +95,10 @@ onUnmounted(() => {
       <div class="flex items-center gap-2">
         <span class="size-2.5 rounded-full bg-red-500" />
         <span class="text-gray-300">{{ downCount }} down</span>
+      </div>
+      <div v-if="errorCount > 0" class="flex items-center gap-2">
+        <span class="size-2.5 rounded-full bg-amber-500" />
+        <span class="text-gray-300">{{ errorCount }} with errors</span>
       </div>
     </div>
     <ProjectGroup

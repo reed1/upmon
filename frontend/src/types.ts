@@ -16,7 +16,16 @@ export interface DayEntry {
   checks: (number | null)[];
 }
 
-export type DailySummaryResponse = Record<string, Record<string, DayEntry[]>>;
+export interface SiteDailySummary {
+  days: DayEntry[];
+  cleanup_ok?: boolean;
+  errors_ok?: boolean;
+}
+
+export type DailySummaryResponse = Record<
+  string,
+  Record<string, SiteDailySummary>
+>;
 
 export interface AccessLogSiteInfo {
   project_id: string;

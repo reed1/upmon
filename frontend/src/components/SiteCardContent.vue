@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SiteStatus, DayEntry } from '../types';
+import type { SiteStatus, DayEntry, SiteDailySummary } from '../types';
 
 defineProps<{
   status: SiteStatus;
@@ -8,6 +8,7 @@ defineProps<{
   cellColor: (value: number | null) => string;
   cellTooltip: (value: number | null, hour: number) => string;
   timeAgo: (dateStr: string | null) => string;
+  siteSummary?: SiteDailySummary;
 }>();
 </script>
 
@@ -27,6 +28,45 @@ defineProps<{
   </div>
 
   <div class="mt-1 text-sm text-gray-500 truncate">{{ status.url }}</div>
+
+  <div
+    v-if="
+      siteSummary &&
+      (siteSummary.cleanup_ok !== undefined ||
+        siteSummary.errors_ok !== undefined)
+    "
+    class="mt-2 flex items-center gap-3 text-xs text-gray-400"
+  >
+    <span class="flex items-center gap-1" title="Health endpoint">
+      <span
+        class="size-1.5 rounded-full"
+        :class="status.is_up ? 'bg-emerald-500' : 'bg-red-500'"
+      />
+      Health
+    </span>
+    <span
+      v-if="siteSummary.cleanup_ok !== undefined"
+      class="flex items-center gap-1"
+      title="Last cleanup (must be within 2 days and successful)"
+    >
+      <span
+        class="size-1.5 rounded-full"
+        :class="siteSummary.cleanup_ok ? 'bg-emerald-500' : 'bg-red-500'"
+      />
+      Cleanup
+    </span>
+    <span
+      v-if="siteSummary.errors_ok !== undefined"
+      class="flex items-center gap-1"
+      title="Daily error count (must be zero)"
+    >
+      <span
+        class="size-1.5 rounded-full"
+        :class="siteSummary.errors_ok ? 'bg-emerald-500' : 'bg-red-500'"
+      />
+      Errors
+    </span>
+  </div>
 
   <div v-if="status.error_message" class="mt-2 text-sm text-red-400">
     {{ status.error_message }}
