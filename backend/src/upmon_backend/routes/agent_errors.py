@@ -1,11 +1,9 @@
-import asyncio
 import logging
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..auth import require_api_key
-from .agent_logs import AgentConfig, _parse_json_columns, _query_agent, get_agent_config
 
 logger = logging.getLogger("upmon_backend.errors")
 
@@ -24,8 +22,8 @@ def _parse_date(raw: str) -> date:
 
 @router.get("")
 async def get_errors(
+    request: Request,
     date: str = Query(description="Date in yyyymmdd format (UTC, must be a completed past day)"),
-    config: AgentConfig = Depends(get_agent_config),
 ) -> dict:
     parsed = _parse_date(date)
 
@@ -33,24 +31,23 @@ async def get_errors(
     if parsed >= today_utc:
         raise HTTPException(status_code=400, detail="Date must be a fully completed day (before today UTC)")
 
-    start_epoch = int(datetime(parsed.year, parsed.month, parsed.day, tzinfo=timezone.utc).timestamp())
-    end_epoch = start_epoch + 86400
+    pool = request.app.state.pool
+    rows = await pool.fetch(
+        """SELECT project_id, site_key, success, agent_error, error_count
+           FROM agent_daily_error_count
+           WHERE date = $1""",
+        parsed,
+    )
 
-    params = {
-        "start": start_epoch,
-        "end": end_epoch,
-        "exception_type": "unexpected",
-    }
-
-    results = await asyncio.gather(*(_query_agent(site, "logs", params) for site in config.sites))
-
-    columns = results[0]["columns"]
     total_errors = 0
     sites = {}
-    for site, result in zip(config.sites, results):
-        key = f"{site.project_id}/{site.site_key}"
-        rows = _parse_json_columns(result)["rows"]
-        total_errors += len(rows)
-        sites[key] = rows
+    for r in rows:
+        key = f"{r['project_id']}/{r['site_key']}"
+        if not r["success"]:
+            sites[key] = {"success": False, "agent_error": r["agent_error"], "error_count": None}
+        else:
+            count = r["error_count"] or 0
+            total_errors += count
+            sites[key] = {"success": True, "error_count": count}
 
-    return {"date": date, "total_errors": total_errors, "columns": columns, "sites": sites}
+    return {"date": date, "total_errors": total_errors, "sites": sites}
