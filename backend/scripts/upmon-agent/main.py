@@ -33,7 +33,7 @@ def _time_conditions(start, end):
     conditions = ["epoch_sec >= ?"]
     bindings = [start]
     if end is not None:
-        conditions.append("epoch_sec <= ?")
+        conditions.append("epoch_sec < ?")
         bindings.append(end)
     return conditions, bindings
 
@@ -165,9 +165,17 @@ def view_stats(cursor, params):
     }
 
 
+def view_error_count(cursor, params):
+    conditions, bindings = _time_conditions(params["start"], params.get("end"))
+    conditions.append("exception_is_unexpected = 1")
+    where = f"WHERE {' AND '.join(conditions)}"
+    return _execute(cursor, f"SELECT COUNT(*) AS error_count FROM access_log {where}", bindings)
+
+
 VIEWS = {
     "logs": view_logs,
     "stats": view_stats,
+    "error_count": view_error_count,
 }
 
 

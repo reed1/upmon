@@ -13,3 +13,15 @@ CREATE TABLE IF NOT EXISTS agent_cleanup_log (
 
 CREATE INDEX IF NOT EXISTS idx_agent_cleanup_log_site
     ON agent_cleanup_log (project_id, site_key, id DESC);
+
+CREATE TABLE IF NOT EXISTS agent_daily_error_count (
+    id BIGSERIAL PRIMARY KEY,
+    date DATE NOT NULL,
+    project_id TEXT NOT NULL,
+    site_key TEXT NOT NULL,
+    success BOOLEAN NOT NULL,
+    agent_error TEXT,
+    error_count INTEGER,
+    recorded_at TIMESTAMPTZ NOT NULL,
+    UNIQUE (project_id, site_key, date)
+);
