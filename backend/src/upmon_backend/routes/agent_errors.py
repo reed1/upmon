@@ -36,15 +36,13 @@ async def get_errors(
     start_epoch = int(datetime(parsed.year, parsed.month, parsed.day, tzinfo=timezone.utc).timestamp())
     end_epoch = start_epoch + 86400
 
-    sql = """
-        SELECT * FROM access_log
-        WHERE epoch_sec >= ? AND epoch_sec < ?
-          AND exception_is_unexpected = 1
-        ORDER BY epoch_sec DESC
-    """
-    bindings = [start_epoch, end_epoch]
+    params = {
+        "start": start_epoch,
+        "end": end_epoch,
+        "exception_type": "unexpected",
+    }
 
-    results = await asyncio.gather(*(_query_agent(site, sql, bindings) for site in config.sites))
+    results = await asyncio.gather(*(_query_agent(site, "logs", params) for site in config.sites))
 
     columns = results[0]["columns"]
     total_errors = 0
