@@ -10,20 +10,45 @@ import type {
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const API_KEY = import.meta.env.VITE_API_KEY;
 
-async function throwApiError(res: Response): Promise<never> {
-  const body = await res.text();
-  throw new Error(`API error ${res.status}: ${body}`);
-}
-
-export async function fetchStatus(projectId?: string): Promise<SiteStatus[]> {
-  const url = new URL('/api/v1/status', BASE_URL);
-  if (projectId) url.searchParams.set('project_id', projectId);
-
+async function api(
+  path: string,
+  params?: Record<string, string>,
+): Promise<Response> {
+  const url = new URL(path, BASE_URL);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      url.searchParams.set(k, v);
+    }
+  }
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`API error ${res.status}: ${body}`);
+  }
+  return res;
+}
 
-  if (!res.ok) await throwApiError(res);
+function siteUrl(projectId: string, siteKey: string, suffix: string): string {
+  return `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/${suffix}`;
+}
+
+function setOptional(
+  params: Record<string, string>,
+  entries: Record<string, string | undefined>,
+): Record<string, string> {
+  for (const [k, v] of Object.entries(entries)) {
+    if (v) params[k] = v;
+  }
+  return params;
+}
+
+export async function fetchStatus(projectId?: string): Promise<SiteStatus[]> {
+  const res = await api(
+    '/api/v1/status',
+    projectId ? { project_id: projectId } : undefined,
+  );
   return res.json();
 }
 
@@ -31,24 +56,15 @@ export async function fetchDailySummary(
   projectId?: string,
   days?: number,
 ): Promise<DailySummaryResponse> {
-  const url = new URL('/api/v1/daily-summary', BASE_URL);
-  if (projectId) url.searchParams.set('project_id', projectId);
-  if (days) url.searchParams.set('days', String(days));
-
-  const res = await fetch(url, {
-    headers: { 'x-api-key': API_KEY },
-  });
-
-  if (!res.ok) await throwApiError(res);
+  const params: Record<string, string> = {};
+  if (projectId) params.project_id = projectId;
+  if (days) params.days = String(days);
+  const res = await api('/api/v1/daily-summary', params);
   return res.json();
 }
 
 export async function fetchAccessLogSites(): Promise<AccessLogSiteInfo[]> {
-  const url = new URL('/api/v1/access-logs/sites', BASE_URL);
-  const res = await fetch(url, {
-    headers: { 'x-api-key': API_KEY },
-  });
-  if (!res.ok) await throwApiError(res);
+  const res = await api('/api/v1/access-logs/sites');
   return res.json();
 }
 
@@ -62,20 +78,17 @@ export async function fetchAccessLogStats(
   clientType?: string,
   method?: string,
 ): Promise<AccessLogStats> {
-  const url = new URL(
-    `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/stats`,
-    BASE_URL,
+  const params = setOptional(
+    { start },
+    {
+      end,
+      exception_type: exceptionType,
+      os,
+      client_type: clientType,
+      method,
+    },
   );
-  url.searchParams.set('start', start);
-  if (end) url.searchParams.set('end', end);
-  if (exceptionType) url.searchParams.set('exception_type', exceptionType);
-  if (os) url.searchParams.set('os', os);
-  if (clientType) url.searchParams.set('client_type', clientType);
-  if (method) url.searchParams.set('method', method);
-  const res = await fetch(url, {
-    headers: { 'x-api-key': API_KEY },
-  });
-  if (!res.ok) await throwApiError(res);
+  const res = await api(siteUrl(projectId, siteKey, 'stats'), params);
   return res.json();
 }
 
@@ -91,22 +104,19 @@ export async function fetchAccessLogEntries(
   orderBy?: string,
   orderDir?: string,
 ): Promise<AccessLogEntries> {
-  const url = new URL(
-    `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/logs`,
-    BASE_URL,
+  const params = setOptional(
+    { start },
+    {
+      end,
+      exception_type: exceptionType,
+      os,
+      client_type: clientType,
+      method,
+      order_by: orderBy,
+      order_dir: orderDir,
+    },
   );
-  url.searchParams.set('start', start);
-  if (end) url.searchParams.set('end', end);
-  if (exceptionType) url.searchParams.set('exception_type', exceptionType);
-  if (os) url.searchParams.set('os', os);
-  if (clientType) url.searchParams.set('client_type', clientType);
-  if (method) url.searchParams.set('method', method);
-  if (orderBy) url.searchParams.set('order_by', orderBy);
-  if (orderDir) url.searchParams.set('order_dir', orderDir);
-  const res = await fetch(url, {
-    headers: { 'x-api-key': API_KEY },
-  });
-  if (!res.ok) await throwApiError(res);
+  const res = await api(siteUrl(projectId, siteKey, 'logs'), params);
   return res.json();
 }
 
@@ -114,13 +124,6 @@ export async function fetchSiteSummary(
   projectId: string,
   siteKey: string,
 ): Promise<SiteSummary> {
-  const url = new URL(
-    `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/summary`,
-    BASE_URL,
-  );
-  const res = await fetch(url, {
-    headers: { 'x-api-key': API_KEY },
-  });
-  if (!res.ok) await throwApiError(res);
+  const res = await api(siteUrl(projectId, siteKey, 'summary'));
   return res.json();
 }
