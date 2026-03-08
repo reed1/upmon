@@ -4,13 +4,21 @@
       "project_id": "my-project",
       "site_key": "dev",
       "agent_url": "https://my-server.example.com/health/agent",
-      "agent_api_key": "changeme"
+      "agent_api_key": "changeme",
+      "ssh_host": "my-server",
+      "ssh_dest": "user@192.168.1.1",
+      "db_path": "/home/user/app/my-project/run/access-log/access-log.db",
+      "agent_path": "~/app/upmon-agent"
     },
     {
       "project_id": "my-project",
       "site_key": "insecure-cert-example",
       "agent_url": "https://example.com/health/agent",
       "agent_api_key": "changeme",
+      "ssh_host": "my-other-server",
+      "ssh_dest": "user@10.0.0.1",
+      "db_path": "/var/www/app/storage/logs/access_log/access_log.db",
+      "agent_path": "/var/www/app/storage/logs/access_log/upmon_agent",
       "tls_skip_verify": true
     }
   ]
