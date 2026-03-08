@@ -22,9 +22,13 @@ const upCount = computed(() => statuses.value.filter((s) => s.is_up).length);
 const downCount = computed(() => statuses.value.filter((s) => !s.is_up).length);
 const errorCount = computed(() => {
   let count = 0;
-  for (const sites of Object.values(dailySummary.value)) {
-    for (const entry of Object.values(sites)) {
-      if (entry.cleanup_ok === false || entry.errors_ok === false) count++;
+  for (const [projectId, sites] of Object.entries(dailySummary.value)) {
+    for (const [siteKey, entry] of Object.entries(sites)) {
+      const hasAgent = accessLogSites.value.some(
+        (a) => a.project_id === projectId && a.site_key === siteKey,
+      );
+      if (hasAgent && (entry.cleanup_ok === false || entry.errors_ok === false))
+        count++;
     }
   }
   return count;

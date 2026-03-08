@@ -59,6 +59,7 @@ const sortedDays = computed(() => {
       :cell-tooltip="cellTooltip"
       :time-ago="timeAgo"
       :site-summary="siteSummary"
+      :has-agent="hasAccessLogs"
     />
     <div class="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
       <svg class="size-3.5" viewBox="0 0 16 16" fill="currentColor">
@@ -79,6 +80,7 @@ const sortedDays = computed(() => {
       :cell-tooltip="cellTooltip"
       :time-ago="timeAgo"
       :site-summary="siteSummary"
+      :has-agent="hasAccessLogs"
     />
   </div>
 </template>

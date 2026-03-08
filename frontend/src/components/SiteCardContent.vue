@@ -9,6 +9,7 @@ defineProps<{
   cellTooltip: (value: number | null, hour: number) => string;
   timeAgo: (dateStr: string | null) => string;
   siteSummary?: SiteDailySummary;
+  hasAgent: boolean;
 }>();
 </script>
 
@@ -30,11 +31,7 @@ defineProps<{
   <div class="mt-1 text-sm text-gray-500 truncate">{{ status.url }}</div>
 
   <div
-    v-if="
-      siteSummary &&
-      (siteSummary.cleanup_ok !== undefined ||
-        siteSummary.errors_ok !== undefined)
-    "
+    v-if="hasAgent && siteSummary"
     class="mt-2 flex items-center gap-3 text-xs text-gray-400"
   >
     <span class="flex items-center gap-1" title="Health endpoint">
