@@ -7,6 +7,7 @@ from fastapi.responses import RedirectResponse
 from . import db
 from .config import Settings
 from .routes.agent_cleanup import router as agent_cleanup_router
+from .routes.agent_site_summary import router as agent_site_summary_router
 from .routes.agent_errors import router as agent_errors_router
 from .routes.agent_logs import router as agent_logs_router
 from .routes.health import router as health_router
@@ -55,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(agent_logs_router)
     app.include_router(agent_errors_router)
     app.include_router(agent_cleanup_router)
+    app.include_router(agent_site_summary_router)
 
     app.mount(
         "/frontend",

@@ -35,28 +35,6 @@ async def get_cleanup_logs(
     return [dict(r) for r in rows]
 
 
-@router.get("/sites/{project_id}/{site_key}/cleanup-logs")
-async def get_site_cleanup_logs(
-    request: Request,
-    project_id: str,
-    site_key: str,
-    limit: int = Query(5, ge=1, le=50),
-) -> list[dict]:
-    pool = request.app.state.pool
-    rows = await pool.fetch(
-        """SELECT id, executed_at, retention_days,
-                  status_code, deleted_count, duration_ms, error_message
-           FROM agent_daily_cleanup
-           WHERE project_id = $1 AND site_key = $2
-           ORDER BY id DESC
-           LIMIT $3""",
-        project_id,
-        site_key,
-        limit,
-    )
-    return [dict(r) for r in rows]
-
-
 @router.post("/cleanup/run")
 async def trigger_cleanup(request: Request) -> dict:
     from ..jobs.cleanup import run_cleanup

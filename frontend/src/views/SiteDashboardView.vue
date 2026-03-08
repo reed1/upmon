@@ -5,17 +5,20 @@ import { useRoute } from 'vue-router';
 import {
   fetchAccessLogStats,
   fetchAccessLogEntries,
-  fetchCleanupLogs,
+  fetchSiteSummary,
 } from '../api';
 import type {
   AccessLogStats,
   AccessLogEntries,
   CleanupLogEntry,
+  DailyErrorCount,
 } from '../types';
 import { VueDatePicker } from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
 import VolumeChart from '../components/VolumeChart.vue';
 import LogEntriesTable from '../components/LogEntriesTable.vue';
+import CleanupLogsPanel from '../components/CleanupLogsPanel.vue';
+import PastErrorSummary from '../components/PastErrorSummary.vue';
 
 const route = useRoute();
 const projectId = route.params.projectId as string;
@@ -175,16 +178,7 @@ function toggleMethod(method: string) {
 }
 
 const cleanupLogs: Ref<CleanupLogEntry[]> = ref([]);
-const cleanupOpen = ref(false);
-
-function formatCleanupTime(iso: string): string {
-  const d = new Date(iso);
-  const mon = d.toLocaleString('en-US', { month: 'short' });
-  const day = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${mon} ${day} ${hh}:${mm}`;
-}
+const errorCounts: Ref<DailyErrorCount[]> = ref([]);
 
 const sortColumn = ref('epoch_sec');
 const sortDir = ref<'asc' | 'desc'>('desc');
@@ -289,9 +283,10 @@ watch(selectedClientType, applyFilters);
 watch(selectedMethod, applyFilters);
 onMounted(() => {
   loadData();
-  fetchCleanupLogs(projectId, siteKey).then(
-    (data) => (cleanupLogs.value = data),
-  );
+  fetchSiteSummary(projectId, siteKey).then((data) => {
+    cleanupLogs.value = data.cleanup_logs;
+    errorCounts.value = data.error_counts;
+  });
 });
 </script>
 
@@ -308,68 +303,6 @@ onMounted(() => {
       {{ projectId }} / {{ siteKey }}
       <span class="text-sm font-normal text-gray-500">access logs</span>
     </h2>
-
-    <div v-if="cleanupLogs.length" class="mt-4">
-      <button
-        class="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 transition-colors cursor-pointer"
-        @click="cleanupOpen = !cleanupOpen"
-      >
-        <svg
-          class="w-3.5 h-3.5 transition-transform"
-          :class="cleanupOpen ? 'rotate-90' : ''"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        Cleanup Logs
-      </button>
-
-      <div v-if="cleanupOpen" class="mt-2 overflow-x-auto">
-        <table class="w-full text-sm border-collapse">
-          <thead>
-            <tr class="text-gray-500 border-b border-gray-800 text-left">
-              <th class="px-3 py-2">Time</th>
-              <th class="px-3 py-2">Retention</th>
-              <th class="px-3 py-2">Status</th>
-              <th class="px-3 py-2">Deleted</th>
-              <th class="px-3 py-2 text-right">Duration</th>
-              <th class="px-3 py-2">Error</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="log in cleanupLogs"
-              :key="log.id"
-              class="border-b border-gray-800/50 hover:bg-gray-900/50"
-            >
-              <td class="px-3 py-2 whitespace-nowrap">
-                {{ formatCleanupTime(log.executed_at) }}
-              </td>
-              <td class="px-3 py-2">{{ log.retention_days }}d</td>
-              <td class="px-3 py-2">
-                <span
-                  :class="
-                    log.error_message ? 'text-red-400' : 'text-emerald-400'
-                  "
-                >
-                  {{ log.status_code ?? '-' }}
-                </span>
-              </td>
-              <td class="px-3 py-2">{{ log.deleted_count ?? '-' }}</td>
-              <td class="px-3 py-2 text-right">{{ log.duration_ms }}ms</td>
-              <td class="px-3 py-2 max-w-xs truncate text-red-400">
-                {{ log.error_message ?? '' }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
 
     <div class="mt-4 flex flex-wrap gap-1.5">
       <button
@@ -457,6 +390,18 @@ onMounted(() => {
           </div>
         </div>
       </div>
+
+      <CleanupLogsPanel
+        v-if="cleanupLogs.length"
+        class="mt-6"
+        :logs="cleanupLogs"
+      />
+
+      <PastErrorSummary
+        v-if="errorCounts.length"
+        class="mt-6"
+        :entries="errorCounts"
+      />
 
       <VolumeChart
         v-if="stats.volume?.rows?.length"

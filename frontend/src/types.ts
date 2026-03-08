@@ -46,3 +46,13 @@ export interface CleanupLogEntry {
   duration_ms: number;
   error_message: string | null;
 }
+
+export interface DailyErrorCount {
+  date: string;
+  error_count: number | null;
+}
+
+export interface SiteSummary {
+  cleanup_logs: CleanupLogEntry[];
+  error_counts: DailyErrorCount[];
+}

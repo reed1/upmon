@@ -4,7 +4,7 @@ import type {
   AccessLogSiteInfo,
   AccessLogStats,
   AccessLogEntries,
-  CleanupLogEntry,
+  SiteSummary,
 } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -110,16 +110,14 @@ export async function fetchAccessLogEntries(
   return res.json();
 }
 
-export async function fetchCleanupLogs(
+export async function fetchSiteSummary(
   projectId: string,
   siteKey: string,
-  limit = 5,
-): Promise<CleanupLogEntry[]> {
+): Promise<SiteSummary> {
   const url = new URL(
-    `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/cleanup-logs`,
+    `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/summary`,
     BASE_URL,
   );
-  url.searchParams.set('limit', String(limit));
   const res = await fetch(url, {
     headers: { 'x-api-key': API_KEY },
   });
