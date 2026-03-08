@@ -15,7 +15,7 @@ The monitored app writes requests to a local SQLite database. Upmon's agent (dep
 Mount a router at `/health` with two routes:
 
 - `GET /health` — returns `{"status": "UP"}`. Used by uptime checks.
-- `GET /health/agent` — accepts a single `q` query param containing a base64-encoded JSON payload. Shells out to the `upmon-agent` script and returns its JSON output. The agent path comes from an env var / config.
+- `GET /health/agent` — accepts a single `q` query param containing a base64-encoded JSON payload. Shells out to the `upmon-agent` script and returns its JSON output. The agent always exits 0 and writes all output (including errors) to stdout as JSON `{"error": ..., "result": ...}` — never to stderr. The endpoint should always return this same JSON shape, even if the process itself fails to run (e.g. python3 not installed, file not found, timeout). The agent path comes from an env var / config.
 
 ```python
 import json
@@ -39,13 +39,19 @@ def health_agent(q: str = Query()):
         raise HTTPException(500, "UPMON_AGENT_PATH not configured")
 
     args = json.dumps({"q": q})
-    result = subprocess.run(
-        ["python3", agent_path, args],
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-    return json.loads(result.stdout)
+    try:
+        result = subprocess.run(
+            ["python3", agent_path, args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception as e:
+        return {"error": str(e), "result": None}
+
+    if result.stdout:
+        return json.loads(result.stdout)
+    return {"error": result.stderr.strip() or "Agent process failed with no output", "result": None}
 ```
 
 ## 2. SQLite Database

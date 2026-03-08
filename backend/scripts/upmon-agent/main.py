@@ -18,8 +18,7 @@ SITES_BY_KEY = {site["api_key"]: site for site in SITES}
 
 def respond(result=None, error=None):
     print(json.dumps({"error": error, "result": result}))
-    if error:
-        sys.exit(1)
+    sys.exit(0)
 
 
 def _execute(cursor, sql, bindings=None):
@@ -242,8 +241,13 @@ def main():
     elif command == "cleanup":
         cmd_cleanup(params)
     else:
-        raise RuntimeError(f"Unexpected command: {command}")
+        respond(error=f"Unexpected command: {command}")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:
+        respond(error=f"{type(e).__name__}: {e}")

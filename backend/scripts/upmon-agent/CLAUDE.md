@@ -14,15 +14,20 @@ upmon-agent '{"q": "<base64-encoded JSON>"}'
 
 **`query`** — dispatches to a named view, builds SQL internally, executes against the site's read-only SQLite database.
 
-Payload: `{"command": "query", "api_key": "...", "view": "logs|stats", ...}`
+Payload: `{"command": "query", "api_key": "...", "view": "logs|stats|error_count", ...}`
 
 Views:
 - **`logs`** — returns recent access log rows. Params: `start`, `end`, `exception_type`, `os`, `client_type`, `method`, `order_by`, `order_dir`.
 - **`stats`** — returns summary, distributions, and volume data. Params: `start`, `end`, `exception_type`, `os`, `client_type`, `method`.
+- **`error_count`** — returns count of unexpected exceptions in a time range. Params: `start`, `end`.
 
 **`cleanup`** — deletes rows older than `retention_days` for the authenticated site. Returns `{"deleted": <count>}`.
 
 Payload: `{"command": "cleanup", "api_key": "...", "retention_days": <int>}`
+
+## Output Contract
+
+All output goes to stdout as JSON: `{"error": <string|null>, "result": <object|null>}`. Never writes to stderr. Always exits 0. Host applications should parse and pass through the JSON as-is.
 
 ## Config
 
