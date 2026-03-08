@@ -9,7 +9,7 @@ all:
         timeout_sec: 10
         expected_status_code: 200
         http_method: GET
-      retention_days: 90
+      retention_days: 360
       agent_defaults:
         retention_days: 360
   children:

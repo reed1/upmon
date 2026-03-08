@@ -8,7 +8,8 @@
       "ssh_host": "my-server",
       "ssh_dest": "user@192.168.1.1",
       "db_path": "/home/user/app/my-project/run/access-log/access-log.db",
-      "agent_path": "~/app/upmon-agent"
+      "agent_path": "~/app/upmon-agent",
+      "retention_days": 360
     },
     {
       "project_id": "my-project",
@@ -19,7 +20,8 @@
       "ssh_dest": "user@10.0.0.1",
       "db_path": "/var/www/app/storage/logs/access_log/access_log.db",
       "agent_path": "/var/www/app/storage/logs/access_log/upmon_agent",
-      "tls_skip_verify": true
+      "tls_skip_verify": true,
+      "retention_days": 360
     }
   ]
 }
