@@ -50,6 +50,7 @@ export interface CleanupLogEntry {
 export interface DailyErrorCount {
   date: string;
   error_count: number | null;
+  agent_error: string | null;
 }
 
 export interface SiteSummary {

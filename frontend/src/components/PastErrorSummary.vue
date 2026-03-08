@@ -16,9 +16,10 @@ if (hasErrors.value) open.value = true;
 
 function formatDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00');
-  const mon = d.toLocaleString('en-US', { month: 'short' });
   const day = String(d.getDate()).padStart(2, '0');
-  return `${mon} ${day}`;
+  const mon = d.toLocaleString('en-US', { month: 'short' });
+  const year = d.getFullYear();
+  return `${day} ${mon} ${year}`;
 }
 </script>
 
@@ -49,6 +50,7 @@ function formatDate(iso: string): string {
           <tr class="text-gray-500 border-b border-gray-800 text-left">
             <th class="px-3 py-2">Date</th>
             <th class="px-3 py-2 text-right">Error Count</th>
+            <th class="px-3 py-2">Error</th>
           </tr>
         </thead>
         <tbody>
@@ -70,6 +72,9 @@ function formatDate(iso: string): string {
               >
                 {{ entry.error_count ?? '-' }}
               </span>
+            </td>
+            <td class="px-3 py-2 max-w-xs truncate text-red-400">
+              {{ entry.agent_error ?? '' }}
             </td>
           </tr>
         </tbody>
