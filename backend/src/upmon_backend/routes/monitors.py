@@ -31,31 +31,34 @@ async def daily_summary(
     days = max(1, min(days, 90))
     pool = request.app.state.pool
 
+    yesterday = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+
     summary, cleanup_rows, error_rows = await asyncio.gather(
         db.get_hourly_summary(pool, project_id, days),
         pool.fetch(
             """SELECT DISTINCT ON (project_id, site_key)
-                      project_id, site_key, executed_at, error_message
+                      project_id, site_key, error_message
                FROM agent_daily_cleanup
-               ORDER BY project_id, site_key, id DESC"""
+               WHERE executed_at >= $1
+               ORDER BY project_id, site_key, id DESC""",
+            yesterday,
         ),
         pool.fetch(
             """SELECT DISTINCT ON (project_id, site_key)
-                      project_id, site_key, date, error_count
+                      project_id, site_key, success, error_count
                FROM agent_daily_error_count
-               WHERE success = TRUE
-               ORDER BY project_id, site_key, date DESC"""
+               WHERE date >= $1
+               ORDER BY project_id, site_key, date DESC""",
+            yesterday.date(),
         ),
     )
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=2)
-
     for r in cleanup_rows:
         entry = summary.setdefault(r["project_id"], {}).setdefault(r["site_key"], SiteSummaryEntry(days=[]))
-        entry.cleanup_ok = r["error_message"] is None and r["executed_at"] >= cutoff
+        entry.cleanup_ok = r["error_message"] is None
 
     for r in error_rows:
         entry = summary.setdefault(r["project_id"], {}).setdefault(r["site_key"], SiteSummaryEntry(days=[]))
-        entry.errors_ok = r["error_count"] == 0
+        entry.errors_ok = r["success"] and r["error_count"] == 0
 
     return summary
