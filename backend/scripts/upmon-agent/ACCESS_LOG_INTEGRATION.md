@@ -242,3 +242,7 @@ headers: {
   ...(Capacitor.isNativePlatform() && { 'X-OS': Capacitor.getPlatform() }),
 }
 ```
+
+## 5. Testing
+
+See [ACCESS_LOG_EXCEPTION_TESTING.md](ACCESS_LOG_EXCEPTION_TESTING.md) for verifying that exception classification and access logging work correctly.
