@@ -3,10 +3,12 @@
 import json
 import subprocess
 from pathlib import Path
+import yaml
 
 CACHE_DIR = Path.home() / ".cache/rlocal/rofi-vscode"
 INPUT_FILE = CACHE_DIR / "upmon_agents.generated.json"
 OUTPUT_FILE = CACHE_DIR / "upmon_agents.enriched.json"
+INVENTORY_FILE = Path(__file__).resolve().parent.parent / "inventory.yaml"
 
 
 def rpass_ensure(key: str) -> str:
@@ -30,6 +32,10 @@ def resolve_ssh_dest(alias: str) -> str:
 
 
 def main():
+    inventory = yaml.safe_load(INVENTORY_FILE.read_text())
+    upmon_config = inventory["all"]["vars"]["upmon_config"]
+    default_retention_days = upmon_config["agent_defaults"]["retention_days"]
+
     data = json.loads(INPUT_FILE.read_text())
 
     enriched_sites = []
@@ -38,7 +44,10 @@ def main():
 
         api_key = rpass_ensure(rpass_key)
         ssh_dest = resolve_ssh_dest(site["ssh_host"])
-        enriched_sites.append({**site, "agent_api_key": api_key, "ssh_dest": ssh_dest})
+        enriched = {**site, "agent_api_key": api_key, "ssh_dest": ssh_dest}
+        if "retention_days" not in enriched:
+            enriched["retention_days"] = default_retention_days
+        enriched_sites.append(enriched)
 
     OUTPUT_FILE.write_text(json.dumps({"sites": enriched_sites}))
     print(f"Wrote {len(enriched_sites)} sites to {OUTPUT_FILE}")
