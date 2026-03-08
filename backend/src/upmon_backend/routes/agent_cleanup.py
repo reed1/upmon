@@ -59,7 +59,7 @@ async def get_site_cleanup_logs(
 
 @router.post("/cleanup/run")
 async def trigger_cleanup(request: Request) -> dict:
-    from ..scheduler import run_cleanup
+    from ..jobs.cleanup import run_cleanup
 
     pool = request.app.state.pool
     agent_config_path = request.app.state.settings.agent_config
