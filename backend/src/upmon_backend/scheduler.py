@@ -88,6 +88,14 @@ async def run_cleanup(pool, agent_config_path: str):
     for site in config.sites:
         await _cleanup_site(pool, site)
 
+    retain = 360 * len(config.sites)
+    max_id = await pool.fetchval("SELECT MAX(id) FROM agent_cleanup_log")
+    if max_id is not None:
+        cutoff = max_id - retain
+        if cutoff > 0:
+            deleted = await pool.execute("DELETE FROM agent_cleanup_log WHERE id < $1", cutoff)
+            logger.info("Cleanup log self-cleanup: %s (cutoff id %d)", deleted, cutoff)
+
     logger.info("Agent cleanup complete")
 
 
