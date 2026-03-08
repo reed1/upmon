@@ -161,47 +161,45 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         finally:
             user_id = getattr(request.state, "user_id", None)
 
-            if status_code == 404 and user_id is None:
-                return
+            if user_id is not None or status_code != 404:
+                os, client_type = get_client_info(request)
+                duration_ms = round((time.perf_counter() - start) * 1000, 2)
+                forwarded = request.headers.get("x-forwarded-for")
+                client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
+                query_params = dict(request.query_params)
 
-            os, client_type = get_client_info(request)
-            duration_ms = round((time.perf_counter() - start) * 1000, 2)
-            forwarded = request.headers.get("x-forwarded-for")
-            client_ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
-            query_params = dict(request.query_params)
+                # request.state.log_body is set manually in the app's core module (dict or None)
+                body = sanitize_body(getattr(request.state, "log_body", None))
+                body_insert = json.dumps(body) if body else None
 
-            # request.state.log_body is set manually in the app's core module (dict or None)
-            body = sanitize_body(getattr(request.state, "log_body", None))
-            body_insert = json.dumps(body) if body else None
-
-            self.db.execute(
-                """INSERT INTO access_log (
-                    epoch_sec, client_ip, method, path, query, body, user_id,
-                    status_code, duration_ms, user_agent, os, client_type,
-                    app_version, exception_class, exception_message,
-                    exception_is_unexpected, exception_traceback
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    int(time.time()),
-                    client_ip,
-                    request.method,
-                    request.url.path,
-                    json.dumps(query_params) if query_params else None,
-                    body_insert,
-                    user_id,
-                    status_code,
-                    duration_ms,
-                    request.headers.get("user-agent"),
-                    os,
-                    client_type,
-                    request.headers.get("x-app-version"),
-                    exc_class,
-                    exc_message,
-                    exc_is_unexpected,
-                    exc_traceback,
-                ),
-            )
-            self.db.commit()
+                self.db.execute(
+                    """INSERT INTO access_log (
+                        epoch_sec, client_ip, method, path, query, body, user_id,
+                        status_code, duration_ms, user_agent, os, client_type,
+                        app_version, exception_class, exception_message,
+                        exception_is_unexpected, exception_traceback
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        int(time.time()),
+                        client_ip,
+                        request.method,
+                        request.url.path,
+                        json.dumps(query_params) if query_params else None,
+                        body_insert,
+                        user_id,
+                        status_code,
+                        duration_ms,
+                        request.headers.get("user-agent"),
+                        os,
+                        client_type,
+                        request.headers.get("x-app-version"),
+                        exc_class,
+                        exc_message,
+                        exc_is_unexpected,
+                        exc_traceback,
+                    ),
+                )
+                self.db.commit()
 
 
 def get_client_info(request: Request) -> tuple[str | None, str]:
