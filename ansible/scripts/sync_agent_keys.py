@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import subprocess
 from pathlib import Path
 import yaml
@@ -17,7 +18,8 @@ def rpass_ensure(key: str) -> str:
 
 
 def resolve_ssh_dest(alias: str) -> str:
-    result = subprocess.run(["ssh", "-G", alias], capture_output=True, text=True, check=True)
+    env = {**os.environ, "SSH_VPNPREP_SKIP": "1"}
+    result = subprocess.run(["ssh", "-G", alias], capture_output=True, text=True, check=True, env=env)
     ssh_config = {}
     for line in result.stdout.splitlines():
         key, _, value = line.partition(" ")
