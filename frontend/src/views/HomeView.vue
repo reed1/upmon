@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { Ref } from 'vue';
-import { fetchStatus, fetchDailySummary, fetchAccessLogSites } from '../api';
-import type {
-  SiteStatus,
-  DailySummaryResponse,
-  AccessLogSiteInfo,
-} from '../types';
+import { fetchStatus, fetchDailySummary } from '../api';
+import type { SiteStatus, DailySummaryResponse } from '../types';
 import ProjectGroup from '../components/ProjectGroup.vue';
 
 const statuses: Ref<SiteStatus[]> = ref([]);
 const dailySummary: Ref<DailySummaryResponse> = ref({});
-const accessLogSites: Ref<AccessLogSiteInfo[]> = ref([]);
 const loading = ref(true);
 const error: Ref<string | null> = ref(null);
 const lastRefreshed: Ref<Date | null> = ref(null);
@@ -22,12 +17,12 @@ const upCount = computed(() => statuses.value.filter((s) => s.is_up).length);
 const downCount = computed(() => statuses.value.filter((s) => !s.is_up).length);
 const errorCount = computed(() => {
   let count = 0;
-  for (const [projectId, sites] of Object.entries(dailySummary.value)) {
-    for (const [siteKey, entry] of Object.entries(sites)) {
-      const hasAgent = accessLogSites.value.some(
-        (a) => a.project_id === projectId && a.site_key === siteKey,
-      );
-      if (hasAgent && (entry.cleanup_ok === false || entry.errors_ok === false))
+  for (const sites of Object.values(dailySummary.value)) {
+    for (const entry of Object.values(sites)) {
+      if (
+        entry.has_agent &&
+        (entry.cleanup_ok === false || entry.errors_ok === false)
+      )
         count++;
     }
   }
@@ -53,14 +48,12 @@ function formatTime(date: Date): string {
 
 async function refresh() {
   try {
-    const [statusData, summaryData, accessLogData] = await Promise.all([
+    const [statusData, summaryData] = await Promise.all([
       fetchStatus(),
       fetchDailySummary(),
-      fetchAccessLogSites().catch(() => [] as AccessLogSiteInfo[]),
     ]);
     statuses.value = statusData;
     dailySummary.value = summaryData;
-    accessLogSites.value = accessLogData;
     lastRefreshed.value = new Date();
     error.value = null;
   } catch (e) {
@@ -111,7 +104,6 @@ onUnmounted(() => {
       :project-id="pid"
       :sites="sitesForProject(pid)"
       :daily-summary="dailySummary[pid] ?? {}"
-      :access-log-sites="accessLogSites"
     />
   </div>
 </template>

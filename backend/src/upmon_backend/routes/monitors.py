@@ -1,11 +1,13 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
 
 from .. import db
 from ..auth import require_api_key
 from ..models import HourlySummary, MonitorStatus, SiteSummaryEntry
+from .agent_logs import _load_agent_config
 
 router = APIRouter(
     prefix="/api/v1",
@@ -52,6 +54,13 @@ async def daily_summary(
             yesterday.date(),
         ),
     )
+
+    agent_config_path = request.app.state.settings.agent_config
+    if Path(agent_config_path).exists():
+        agent_config = _load_agent_config(agent_config_path)
+        for site in agent_config.sites:
+            entry = summary.setdefault(site.project_id, {}).setdefault(site.site_key, SiteSummaryEntry(days=[]))
+            entry.has_agent = True
 
     for r in cleanup_rows:
         entry = summary.setdefault(r["project_id"], {}).setdefault(r["site_key"], SiteSummaryEntry(days=[]))

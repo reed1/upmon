@@ -23,6 +23,7 @@ class DayChecks(BaseModel):
 
 class SiteSummaryEntry(BaseModel):
     days: list[DayChecks]
+    has_agent: bool = False
     cleanup_ok: bool | None = None
     errors_ok: bool | None = None
 

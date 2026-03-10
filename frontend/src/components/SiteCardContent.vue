@@ -9,7 +9,6 @@ defineProps<{
   cellTooltip: (value: number | null, hour: number) => string;
   timeAgo: (dateStr: string | null) => string;
   siteSummary?: SiteDailySummary;
-  hasAgent: boolean;
 }>();
 </script>
 
@@ -31,7 +30,7 @@ defineProps<{
   <div class="mt-1 text-sm text-gray-500 truncate">{{ status.url }}</div>
 
   <div
-    v-if="hasAgent && siteSummary"
+    v-if="siteSummary?.has_agent"
     class="mt-2 flex items-center gap-3 text-xs text-gray-400"
   >
     <span class="flex items-center gap-1" title="Health endpoint">
@@ -42,7 +41,7 @@ defineProps<{
       Health
     </span>
     <span
-      v-if="siteSummary.cleanup_ok !== undefined"
+      v-if="siteSummary.cleanup_ok != null"
       class="flex items-center gap-1"
       title="Last cleanup (must be within 2 days and successful)"
     >
@@ -53,7 +52,7 @@ defineProps<{
       Cleanup
     </span>
     <span
-      v-if="siteSummary.errors_ok !== undefined"
+      v-if="siteSummary.errors_ok != null"
       class="flex items-center gap-1"
       title="Daily error count (must be zero)"
     >

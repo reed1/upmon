@@ -18,6 +18,7 @@ export interface DayEntry {
 
 export interface SiteDailySummary {
   days: DayEntry[];
+  has_agent: boolean;
   cleanup_ok?: boolean;
   errors_ok?: boolean;
 }
@@ -26,11 +27,6 @@ export type DailySummaryResponse = Record<
   string,
   Record<string, SiteDailySummary>
 >;
-
-export interface AccessLogSiteInfo {
-  project_id: string;
-  site_key: string;
-}
 
 export interface AccessLogStats {
   summary: { columns: string[]; rows: any[][] };

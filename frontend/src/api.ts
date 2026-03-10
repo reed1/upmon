@@ -1,7 +1,6 @@
 import type {
   SiteStatus,
   DailySummaryResponse,
-  AccessLogSiteInfo,
   AccessLogStats,
   AccessLogEntries,
   SiteSummary,
@@ -60,11 +59,6 @@ export async function fetchDailySummary(
   if (projectId) params.project_id = projectId;
   if (days) params.days = String(days);
   const res = await api('/api/v1/daily-summary', params);
-  return res.json();
-}
-
-export async function fetchAccessLogSites(): Promise<AccessLogSiteInfo[]> {
-  const res = await api('/api/v1/access-logs/sites');
   return res.json();
 }
 

@@ -15,7 +15,6 @@ uv run pytest        # run tests
 - FastAPI app with asyncpg connection pool
 - API endpoint: `GET /api/v1/status?project_id=<optional>` — current monitor status
 - API endpoint: `GET /api/v1/daily-summary?project_id=<optional>&days=<1-90>` — daily uptime aggregation from `monitor_checks`
-- API endpoint: `GET /api/v1/access-logs/sites` — list configured agent sites
 - API endpoint: `GET /api/v1/access-logs/sites/{project_id}/{site_key}/logs` — proxy access logs from remote agent
 - API endpoint: `GET /api/v1/access-logs/sites/{project_id}/{site_key}/stats` — proxy access log stats from remote agent
 - Serves frontend static files at `/frontend` from `FRONTEND_DIR` (defaults to `../frontend/dist`)

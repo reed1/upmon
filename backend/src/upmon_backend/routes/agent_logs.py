@@ -125,11 +125,6 @@ def _parse_json_columns(result: dict, columns: Iterable[str] = _JSON_PARSE_COLUM
     }
 
 
-@router.get("/sites")
-async def list_sites(config: AgentConfig = Depends(get_agent_config)) -> list[dict]:
-    return [{"project_id": site.project_id, "site_key": site.site_key} for site in config.sites]
-
-
 @router.get("/sites/{project_id}/{site_key}/logs")
 async def get_logs(
     project_id: str,
