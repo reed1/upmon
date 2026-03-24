@@ -27,7 +27,15 @@ defineProps<{
     </div>
   </div>
 
-  <div class="mt-1 text-sm text-gray-500 truncate">{{ status.url }}</div>
+  <div class="mt-1 text-sm text-gray-500 truncate">
+    <a
+      :href="status.url"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="hover:text-gray-300 transition-colors"
+      >{{ status.url }}</a
+    >
+  </div>
 
   <div
     v-if="siteSummary?.has_agent"
