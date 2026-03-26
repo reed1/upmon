@@ -32,6 +32,7 @@ const periods = [
   { label: '6h', minutes: 6 * 60 },
   { label: '12h', minutes: 12 * 60 },
   { label: '1d', minutes: 24 * 60 },
+  { label: '2d', minutes: 2 * 24 * 60 },
   { label: '7d', minutes: 7 * 24 * 60 },
   { label: '30d', minutes: 30 * 24 * 60 },
 ] as const;
