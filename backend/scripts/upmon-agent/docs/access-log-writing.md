@@ -1,62 +1,18 @@
-# Access Log Integration Guide
+# Access Log Writing
 
-How to add Upmon-compatible access logging to any backend project.
+How to add request logging to a backend application. Each request is recorded in a local SQLite database for querying by the upmon agent.
 
 ## Architecture
 
 ```
-Upmon Backend --SSH--> GET /health/agent --subprocess--> upmon-agent query --> SQLite
+App receives request --> Middleware logs to SQLite --> upmon-agent reads from SQLite
 ```
 
-The monitored app writes requests to a local SQLite database. Upmon's agent (deployed alongside via Ansible) reads from it.
+## SQLite Database
 
-## 1. Health Endpoints
+Create on startup with WAL mode enabled. Create the directory if it doesn't exist.
 
-Mount a router at `/health` with two routes:
-
-- `GET /health` — returns `{"status": "UP"}`. Used by uptime checks.
-- `GET /health/agent` — accepts a single `q` query param containing a base64-encoded JSON payload. Shells out to the `upmon-agent` script and returns its JSON output. The agent always exits 0 and writes all output (including errors) to stdout as JSON `{"error": ..., "result": ...}` — never to stderr. The endpoint should always return this same JSON shape, even if the process itself fails to run (e.g. python3 not installed, file not found, timeout). The agent path comes from an env var / config.
-
-```python
-import json
-import os
-import subprocess
-
-from fastapi import APIRouter, HTTPException, Query
-
-router = APIRouter(prefix="/health")
-
-
-@router.get("")
-def health():
-    return {"status": "UP"}
-
-
-@router.get("/agent")
-def health_agent(q: str = Query()):
-    agent_path = os.environ.get("UPMON_AGENT_PATH")
-    if not agent_path:
-        raise HTTPException(500, "UPMON_AGENT_PATH not configured")
-
-    args = json.dumps({"q": q})
-    try:
-        result = subprocess.run(
-            ["python3", agent_path, args],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except Exception as e:
-        return {"error": str(e), "result": None}
-
-    if result.stdout:
-        return json.loads(result.stdout)
-    return {"error": result.stderr.strip() or "Agent process failed with no output", "result": None}
-```
-
-## 2. SQLite Database
-
-Create on startup with WAL mode enabled.
+Recommended path: `run/access_log.db` relative to the service's working directory. For Laravel, use `storage/logs/access_log/access_log.db`.
 
 ### Schema
 
@@ -89,7 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_access_log_unexpected_exceptions
     ON access_log (epoch_sec) WHERE exception_is_unexpected = 1;
 ```
 
-## 3. Request Logging Middleware / Interceptor
+## Request Logging Middleware
 
 Wrap every request. On completion (success or error), insert a row into `access_log`.
 
@@ -240,7 +196,9 @@ def parse_os_from_user_agent(ua: str | None) -> str | None:
     return None
 ```
 
-On the frontend, send `X-Client-Type` and `X-OS` headers (Capacitor example):
+## Frontend Headers
+
+On the frontend, send `X-Client-Type` and `X-OS` headers for native app detection (Capacitor example):
 
 ```ts
 headers: {
@@ -248,7 +206,3 @@ headers: {
   ...(Capacitor.isNativePlatform() && { 'X-OS': Capacitor.getPlatform() }),
 }
 ```
-
-## 5. Testing
-
-See [ACCESS_LOG_EXCEPTION_TESTING.md](ACCESS_LOG_EXCEPTION_TESTING.md) for verifying that exception classification and access logging work correctly.

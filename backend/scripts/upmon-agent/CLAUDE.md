@@ -35,7 +35,11 @@ All output goes to stdout as JSON: `{"error": <string|null>, "result": <object|n
 
 ## Integrating Access Logging in a New Project
 
-See [ACCESS_LOG_INTEGRATION.md](ACCESS_LOG_INTEGRATION.md) for a step-by-step guide on adding Upmon-compatible access logging to a Python/FastAPI application.
+See `docs/` for guides on adding Upmon-compatible access logging to an application:
+
+- [access-log-writing.md](docs/access-log-writing.md) — SQLite schema, middleware, sanitization, skip rules
+- [access-log-exception-testing.md](docs/access-log-exception-testing.md) — exception classification and verification
+- [access-log-endpoint.md](docs/access-log-endpoint.md) — `/health/agent` endpoint for remote querying
 
 ## Access Log SQLite Schema
 
