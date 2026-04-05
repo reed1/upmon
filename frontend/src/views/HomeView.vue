@@ -5,45 +5,58 @@ import { fetchStatus, fetchDailySummary } from '../api';
 import type { SiteStatus, DailySummaryResponse } from '../types';
 import ProjectGroup from '../components/ProjectGroup.vue';
 
-const statuses: Ref<SiteStatus[]> = ref([]);
+interface SiteView extends SiteStatus {
+  has_agent_error: boolean;
+}
+
+const sites: Ref<SiteView[]> = ref([]);
 const dailySummary: Ref<DailySummaryResponse> = ref({});
 const loading = ref(true);
 const error: Ref<string | null> = ref(null);
-const lastRefreshed: Ref<Date | null> = ref(null);
+const statusFilter: Ref<'up' | 'down' | 'error' | null> = ref(null);
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
-const upCount = computed(() => statuses.value.filter((s) => s.is_up).length);
-const downCount = computed(() => statuses.value.filter((s) => !s.is_up).length);
-const errorCount = computed(() => {
-  let count = 0;
-  for (const sites of Object.values(dailySummary.value)) {
-    for (const entry of Object.values(sites)) {
-      if (
-        entry.has_agent &&
-        (entry.cleanup_ok === false || entry.errors_ok === false)
-      )
-        count++;
-    }
-  }
-  return count;
+function buildSiteViews(
+  statuses: SiteStatus[],
+  summary: DailySummaryResponse,
+): SiteView[] {
+  return statuses.map((s) => {
+    const entry = summary[s.project_id]?.[s.site_key];
+    return {
+      ...s,
+      has_agent_error:
+        !!entry?.has_agent &&
+        (entry.cleanup_ok === false || entry.errors_ok === false),
+    };
+  });
+}
+
+const upCount = computed(() => sites.value.filter((s) => s.is_up).length);
+const downCount = computed(() => sites.value.filter((s) => !s.is_up).length);
+const errorCount = computed(
+  () => sites.value.filter((s) => s.has_agent_error).length,
+);
+
+const filtered = computed(() => {
+  if (statusFilter.value === 'up') return sites.value.filter((s) => s.is_up);
+  if (statusFilter.value === 'down') return sites.value.filter((s) => !s.is_up);
+  if (statusFilter.value === 'error')
+    return sites.value.filter((s) => s.has_agent_error);
+  return sites.value;
 });
 
 const projectIds = computed(() => {
-  const ids = new Set(statuses.value.map((s) => s.project_id));
+  const ids = new Set(filtered.value.map((s) => s.project_id));
   return [...ids].sort();
 });
 
-function sitesForProject(projectId: string): SiteStatus[] {
-  return statuses.value.filter((s) => s.project_id === projectId);
+function sitesForProject(projectId: string): SiteView[] {
+  return filtered.value.filter((s) => s.project_id === projectId);
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+function toggleFilter(filter: 'up' | 'down' | 'error') {
+  statusFilter.value = statusFilter.value === filter ? null : filter;
 }
 
 async function refresh() {
@@ -52,9 +65,8 @@ async function refresh() {
       fetchStatus(),
       fetchDailySummary(),
     ]);
-    statuses.value = statusData;
     dailySummary.value = summaryData;
-    lastRefreshed.value = new Date();
+    sites.value = buildSiteViews(statusData, summaryData);
     error.value = null;
   } catch (e) {
     error.value = (e as Error).message;
@@ -84,19 +96,47 @@ onUnmounted(() => {
   <div v-if="loading" class="text-center text-gray-500 py-20">Loading...</div>
 
   <div v-else class="space-y-8">
-    <div class="flex items-center gap-6 text-sm">
-      <div class="flex items-center gap-2">
+    <div class="flex flex-wrap gap-2 text-sm">
+      <button
+        class="flex items-center gap-2 rounded px-3 py-1.5 border transition-colors cursor-pointer"
+        :class="
+          statusFilter === 'up'
+            ? 'bg-gray-700 border-gray-500'
+            : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+        "
+        @click="toggleFilter('up')"
+      >
         <span class="size-2.5 rounded-full bg-emerald-500" />
-        <span class="text-gray-300">{{ upCount }} up</span>
-      </div>
-      <div class="flex items-center gap-2">
+        <span class="text-emerald-400 font-medium">{{ upCount }} up</span>
+      </button>
+      <button
+        v-if="downCount > 0"
+        class="flex items-center gap-2 rounded px-3 py-1.5 border transition-colors cursor-pointer"
+        :class="
+          statusFilter === 'down'
+            ? 'bg-gray-700 border-gray-500'
+            : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+        "
+        @click="toggleFilter('down')"
+      >
         <span class="size-2.5 rounded-full bg-red-500" />
-        <span class="text-gray-300">{{ downCount }} down</span>
-      </div>
-      <div v-if="errorCount > 0" class="flex items-center gap-2">
+        <span class="text-red-400 font-medium">{{ downCount }} down</span>
+      </button>
+      <button
+        v-if="errorCount > 0"
+        class="flex items-center gap-2 rounded px-3 py-1.5 border transition-colors cursor-pointer"
+        :class="
+          statusFilter === 'error'
+            ? 'bg-gray-700 border-gray-500'
+            : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+        "
+        @click="toggleFilter('error')"
+      >
         <span class="size-2.5 rounded-full bg-amber-500" />
-        <span class="text-gray-300">{{ errorCount }} with errors</span>
-      </div>
+        <span class="text-amber-400 font-medium"
+          >{{ errorCount }} with errors</span
+        >
+      </button>
     </div>
     <ProjectGroup
       v-for="pid in projectIds"
