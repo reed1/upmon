@@ -30,7 +30,29 @@
         content: "{{ upmon_config | combine(lookup('file', '~/.cache/rlocal/rofi-vscode/upmon_monitors.generated.json') | from_json) | to_nice_json }}\n"
         dest: "{{ app_dir }}/collector-bin/config.json"
         mode: "0644"
-      notify: restart collector
+      register: config_result
+      tags: [push-collector, push-collector-monitor]
+
+    - name: Verify config reload succeeded
+      when: config_result.changed
+      block:
+        - name: Wait for config reload
+          ansible.builtin.pause:
+            seconds: 3
+
+        - name: Check collector is still running
+          ansible.builtin.systemd:
+            name: upmon-collector
+            scope: user
+          register: collector_status
+          failed_when: collector_status.status.ActiveState != "active"
+
+        - name: Check reload log in journalctl
+          ansible.builtin.command:
+            cmd: journalctl --user -u upmon-collector --since "-10s" --no-pager -o cat
+          register: journal_output
+          changed_when: false
+          failed_when: "'config reload complete' not in journal_output.stdout"
       tags: [push-collector, push-collector-monitor]
 
     - name: Template collector .env.local

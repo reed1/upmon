@@ -19,7 +19,9 @@ async fn main() {
 
     let env = env::Env::load();
 
-    let config = config::Config::load(Path::new("config.json"));
+    let config_path = Path::new("config.json");
+
+    let config = config::Config::load(config_path);
     info!(retention_days = config.retention_days, "config loaded");
 
     let monitors = config.resolve();
@@ -32,11 +34,7 @@ async fn main() {
     let client = monitor::build_client(Duration::from_secs(30));
     let insecure_client = monitor::build_insecure_client(Duration::from_secs(30));
 
-    scheduler::spawn_monitors(monitors, pool, client, insecure_client);
-
-    info!("collector running — press ctrl+c to stop");
-    tokio::signal::ctrl_c()
-        .await
-        .expect("failed to listen for ctrl+c");
-    info!("shutting down");
+    let manager = scheduler::MonitorManager::new(pool, client, insecure_client);
+    manager.start_initial(monitors);
+    manager.watch_config(config_path).await;
 }

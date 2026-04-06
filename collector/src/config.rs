@@ -50,6 +50,9 @@ pub struct Monitor {
     pub tls_skip_verify: Option<bool>,
 }
 
+pub type MonitorKey = (String, String);
+
+#[derive(PartialEq)]
 pub struct ResolvedMonitor {
     pub project_id: String,
     pub site_key: String,
@@ -60,6 +63,12 @@ pub struct ResolvedMonitor {
     pub http_method: String,
     pub expected_body: Option<serde_json::Value>,
     pub tls_skip_verify: bool,
+}
+
+impl ResolvedMonitor {
+    pub fn key(&self) -> MonitorKey {
+        (self.project_id.clone(), self.site_key.clone())
+    }
 }
 
 impl Config {
