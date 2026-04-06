@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { Ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { fetchStatus, fetchDailySummary } from '../api';
 import type { SiteStatus, DailySummaryResponse } from '../types';
 import ProjectGroup from '../components/ProjectGroup.vue';
@@ -9,11 +10,20 @@ interface SiteView extends SiteStatus {
   has_agent_error: boolean;
 }
 
+const route = useRoute();
+const router = useRouter();
+
 const sites: Ref<SiteView[]> = ref([]);
 const dailySummary: Ref<DailySummaryResponse> = ref({});
 const loading = ref(true);
 const error: Ref<string | null> = ref(null);
-const statusFilter: Ref<'up' | 'down' | 'error' | null> = ref(null);
+
+const validFilters = ['up', 'down', 'error'] as const;
+type StatusFilter = (typeof validFilters)[number] | null;
+const initFilter = validFilters.includes(route.query.filter as any)
+  ? (route.query.filter as (typeof validFilters)[number])
+  : null;
+const statusFilter: Ref<StatusFilter> = ref(initFilter);
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -56,7 +66,9 @@ function sitesForProject(projectId: string): SiteView[] {
 }
 
 function toggleFilter(filter: 'up' | 'down' | 'error') {
-  statusFilter.value = statusFilter.value === filter ? null : filter;
+  const next = statusFilter.value === filter ? null : filter;
+  statusFilter.value = next;
+  router.push({ query: next ? { filter: next } : {} });
 }
 
 async function refresh() {

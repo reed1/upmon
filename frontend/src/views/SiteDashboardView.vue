@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import type { Ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   fetchAccessLogStats,
   fetchAccessLogEntries,
@@ -21,6 +21,7 @@ import CleanupLogsPanel from '../components/CleanupLogsPanel.vue';
 import PastErrorSummary from '../components/PastErrorSummary.vue';
 
 const route = useRoute();
+const router = useRouter();
 const projectId = route.params.projectId as string;
 const siteKey = route.params.siteKey as string;
 
@@ -293,12 +294,12 @@ onMounted(() => {
 
 <template>
   <div>
-    <router-link
-      to="/"
-      class="text-sm text-gray-400 hover:text-gray-200 transition-colors"
+    <button
+      class="text-sm text-gray-400 hover:text-gray-200 transition-colors cursor-pointer"
+      @click="router.back()"
     >
       &larr; Back
-    </router-link>
+    </button>
 
     <h2 class="mt-4 text-lg font-bold">
       {{ projectId }} / {{ siteKey }}
