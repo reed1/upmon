@@ -7,5 +7,11 @@ Uptime monitoring system. Monorepo with 4 components:
 - **frontend/** — Vue 3 + Vite + Tailwind CSS v4 SPA. Displays monitor status and hourly uptime grids. Built as static files served by backend.
 - **ansible/** — Deployment playbooks targeting the `sgtent` host (upmon backend/collector/frontend) and remote agent hosts. Each component runs as a systemd user service.
 
-Data flow: Collector → TimescaleDB ← Backend API ← Frontend
-Agent flow: Backend API → remote `/health/agent` endpoint → `upmon-agent` script → SQLite access logs
+## Architecture
+
+- Data flow: Collector → TimescaleDB ← Backend API ← Frontend
+- Agent flow: Backend API → remote `/health/agent` endpoint → `upmon-agent` script → SQLite access logs
+
+## Documentation
+
+**docs/** contains integration guides for adding Upmon-compatible access logging to applications, with framework-specific examples (FastAPI, Laravel).

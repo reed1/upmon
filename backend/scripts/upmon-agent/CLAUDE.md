@@ -35,11 +35,11 @@ All output goes to stdout as JSON: `{"error": <string|null>, "result": <object|n
 
 ## Integrating Access Logging in a New Project
 
-See `docs/` for guides on adding Upmon-compatible access logging to an application:
+See the top-level `docs/` directory for guides on adding Upmon-compatible access logging to an application:
 
-- [access-log-writing.md](docs/access-log-writing.md) — SQLite schema, middleware, sanitization, skip rules
-- [access-log-exception-testing.md](docs/access-log-exception-testing.md) — exception classification and verification
-- [access-log-endpoint.md](docs/access-log-endpoint.md) — `/health/agent` endpoint for remote querying
+- [access-log-writing.md](../../../docs/access-log-writing.md) — SQLite schema, middleware, sanitization, skip rules
+- [access-log-exception-testing.md](../../../docs/access-log-exception-testing.md) — exception classification and verification
+- [access-log-endpoint.md](../../../docs/access-log-endpoint.md) — `/health/agent` endpoint for remote querying
 
 ## Access Log SQLite Schema
 

@@ -1,77 +1,8 @@
-# Access Log Writing
+# Access Log — FastAPI
 
-How to add request logging to a backend application. Each request is recorded in a local SQLite database for querying by the upmon agent.
+FastAPI middleware implementation for upmon access logging. See [access-log-writing.md](../access-log-writing.md) for schema and rules.
 
-## Architecture
-
-```
-App receives request --> Middleware logs to SQLite --> upmon-agent reads from SQLite
-```
-
-## SQLite Database
-
-Create on startup with WAL mode enabled. Create the directory if it doesn't exist.
-
-Recommended path: `run/access_log.db` relative to the service's working directory. For Laravel, use `storage/logs/access_log/access_log.db`.
-
-### Schema
-
-```sql
-CREATE TABLE IF NOT EXISTS access_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    epoch_sec INTEGER NOT NULL,
-    client_ip TEXT NOT NULL,
-    method TEXT NOT NULL,
-    path TEXT NOT NULL,
-    query TEXT,                          -- JSON string
-    body TEXT,                           -- JSON string
-    user_id INTEGER,
-    status_code INTEGER,
-    duration_ms REAL NOT NULL,
-    user_agent TEXT,
-    os TEXT,                             -- "android", "ios", "windows", "macos", "linux"
-    client_type TEXT NOT NULL,           -- "app" or "browser"
-    app_version TEXT,
-    files TEXT,                          -- JSON string of [{fieldname, originalname, mimetype, size}]
-    exception_class TEXT,
-    exception_message TEXT,
-    exception_is_unexpected INTEGER,     -- NULL = no exception, 0 = expected, 1 = unexpected
-    exception_traceback TEXT             -- JSON string
-);
-
-CREATE INDEX IF NOT EXISTS idx_access_log_epoch_sec
-    ON access_log (epoch_sec);
-CREATE INDEX IF NOT EXISTS idx_access_log_unexpected_exceptions
-    ON access_log (epoch_sec) WHERE exception_is_unexpected = 1;
-```
-
-## Request Logging Middleware
-
-Wrap every request. On completion (success or error), insert a row into `access_log`.
-
-### Body sanitization
-
-Before logging, redact sensitive fields from the request body. Check your app's login, reset-password, and change-password routes to identify the exact field names. Common ones:
-
-```python
-SENSITIVE_BODY_FIELDS = {"password", "password_confirmation", "password_new", "current_password"}
-
-
-def sanitize_body(body: dict | None) -> dict | None:
-    if not body:
-        return body
-    return {k: "[REDACTED]" if k in SENSITIVE_BODY_FIELDS else v for k, v in body.items()}
-```
-
-### Skip rules
-
-Do **not** log when any of these are true:
-
-- `OPTIONS` requests (CORS preflight)
-- Path is `/health` or `/health/agent` (infrastructure noise from upmon polling)
-- Status code is `404` **and** `user_id` is null (spam/scanner traffic)
-
-### Example (FastAPI)
+## Middleware
 
 ```python
 import json
@@ -85,6 +16,7 @@ from starlette.exceptions import HTTPException
 
 
 SKIP_PATHS = {"/health", "/health/agent"}
+SENSITIVE_BODY_FIELDS = {"password", "password_confirmation", "password_new", "current_password"}
 
 
 class AccessLogMiddleware(BaseHTTPMiddleware):
@@ -164,6 +96,12 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                 self.db.commit()
 
 
+def sanitize_body(body: dict | None) -> dict | None:
+    if not body:
+        return body
+    return {k: "[REDACTED]" if k in SENSITIVE_BODY_FIELDS else v for k, v in body.items()}
+
+
 def get_client_info(request: Request) -> tuple[str | None, str]:
     """Returns (os, client_type).
 
@@ -196,13 +134,51 @@ def parse_os_from_user_agent(ua: str | None) -> str | None:
     return None
 ```
 
-## Frontend Headers
+## SQLite Setup
 
-On the frontend, send `X-Client-Type` and `X-OS` headers for native app detection (Capacitor example):
+```python
+import sqlite3
+from pathlib import Path
 
-```ts
-headers: {
-  'X-Client-Type': Capacitor.isNativePlatform() ? 'app' : 'browser',
-  ...(Capacitor.isNativePlatform() && { 'X-OS': Capacitor.getPlatform() }),
-}
+
+def init_access_log_db(db_path: str = "run/access_log.db") -> sqlite3.Connection:
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(db_path, check_same_thread=False)
+    db.execute("PRAGMA journal_mode=WAL")
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS access_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            epoch_sec INTEGER NOT NULL,
+            client_ip TEXT NOT NULL,
+            method TEXT NOT NULL,
+            path TEXT NOT NULL,
+            query TEXT,
+            body TEXT,
+            user_id INTEGER,
+            status_code INTEGER,
+            duration_ms REAL NOT NULL,
+            user_agent TEXT,
+            os TEXT,
+            client_type TEXT NOT NULL,
+            app_version TEXT,
+            files TEXT,
+            exception_class TEXT,
+            exception_message TEXT,
+            exception_is_unexpected INTEGER,
+            exception_traceback TEXT
+        )
+    """)
+    db.execute("CREATE INDEX IF NOT EXISTS idx_access_log_epoch_sec ON access_log (epoch_sec)")
+    db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_access_log_unexpected_exceptions
+        ON access_log (epoch_sec) WHERE exception_is_unexpected = 1
+    """)
+    return db
+```
+
+## Registering the Middleware
+
+```python
+db = init_access_log_db()
+app.add_middleware(AccessLogMiddleware, db=db)
 ```
