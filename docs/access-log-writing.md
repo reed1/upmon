@@ -80,6 +80,8 @@ headers: {
 }
 ```
 
+Skip this step if the application does not have native mobile app.
+
 ## Framework Examples
 
 See [examples/](examples/) for complete implementations:
