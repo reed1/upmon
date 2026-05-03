@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS access_log (
     exception_class TEXT,
     exception_message TEXT,
     exception_is_unexpected INTEGER,     -- NULL = no exception, 0 = expected, 1 = unexpected
-    exception_traceback TEXT             -- JSON string
+    exception_traceback TEXT             -- JSON string; only populated when exception_is_unexpected = 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_access_log_epoch_sec
@@ -60,6 +60,10 @@ Do **not** log when any of these are true:
 - `OPTIONS` requests (CORS preflight)
 - Path starts with `/health` (infrastructure noise from upmon polling)
 - Status code is `404` **and** `user_id` is null (spam/scanner traffic)
+
+### Exception logging
+
+Always record `exception_class` and `exception_message` when an exception occurs. Only populate `exception_traceback` for unexpected exceptions (`exception_is_unexpected = 1`); leave it NULL for expected exceptions to keep the log focused on actionable failures.
 
 ### Client detection
 
