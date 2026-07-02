@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Query, Request
 
 from .. import db
+from ..access import User, get_current_user
 from ..auth import require_api_key
 from ..models import HourlySummary, MonitorStatus, SiteSummaryEntry
 from .agent_logs import _load_agent_config
@@ -19,9 +20,12 @@ router = APIRouter(
 async def status(
     request: Request,
     project_id: str | None = Query(None),
+    user: User = Depends(get_current_user),
 ) -> list[dict]:
+    if project_id is not None:
+        user.ensure_access(project_id)
     rows = await db.get_monitor_statuses(request.app.state.pool, project_id)
-    return [dict(r) for r in rows]
+    return [dict(r) for r in rows if user.can_access(r["project_id"])]
 
 
 @router.get("/daily-summary", response_model=HourlySummary)
@@ -29,7 +33,10 @@ async def daily_summary(
     request: Request,
     project_id: str | None = Query(None),
     days: int = Query(7),
+    user: User = Depends(get_current_user),
 ) -> HourlySummary:
+    if project_id is not None:
+        user.ensure_access(project_id)
     days = max(1, min(days, 90))
     pool = request.app.state.pool
 
@@ -70,4 +77,4 @@ async def daily_summary(
         entry = summary.setdefault(r["project_id"], {}).setdefault(r["site_key"], SiteSummaryEntry(days=[]))
         entry.errors_ok = r["success"] and r["error_count"] == 0
 
-    return summary
+    return {pid: sites for pid, sites in summary.items() if user.can_access(pid)}

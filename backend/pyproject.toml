@@ -8,6 +8,7 @@ dependencies = [
     "httpx",
     "pydantic-settings",
     "apscheduler",
+    "pyyaml>=6.0.3",
 ]
 
 [dependency-groups]

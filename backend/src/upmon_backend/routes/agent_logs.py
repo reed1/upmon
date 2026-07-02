@@ -11,6 +11,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from ..access import User, get_current_user
 from ..auth import require_api_key
 
 logger = logging.getLogger("upmon_backend.agent")
@@ -138,7 +139,9 @@ async def get_logs(
     order_by: str = Query("epoch_sec"),
     order_dir: str = Query("desc"),
     config: AgentConfig = Depends(get_agent_config),
+    user: User = Depends(get_current_user),
 ) -> dict:
+    user.ensure_access(project_id)
     site = _get_site(config, project_id, site_key)
     result = await _query_agent(
         site,
@@ -168,7 +171,9 @@ async def get_stats(
     client_type: str | None = Query(None),
     method: str | None = Query(None),
     config: AgentConfig = Depends(get_agent_config),
+    user: User = Depends(get_current_user),
 ) -> dict:
+    user.ensure_access(project_id)
     site = _get_site(config, project_id, site_key)
     result = await _query_agent(
         site,

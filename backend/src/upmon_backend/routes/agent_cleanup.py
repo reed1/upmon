@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, Query, Request
 
+from ..access import User, get_current_user
 from ..auth import require_api_key
 
 logger = logging.getLogger("upmon_backend.agent_cleanup")
@@ -18,7 +19,10 @@ async def get_cleanup_logs(
     project_id: str | None = Query(None),
     site_key: str | None = Query(None),
     days: int = Query(7, ge=1, le=365),
+    user: User = Depends(get_current_user),
 ) -> list[dict]:
+    if project_id is not None:
+        user.ensure_access(project_id)
     pool = request.app.state.pool
     rows = await pool.fetch(
         """SELECT id, executed_at, project_id, site_key, agent_url,
@@ -32,11 +36,15 @@ async def get_cleanup_logs(
         project_id,
         site_key,
     )
-    return [dict(r) for r in rows]
+    return [dict(r) for r in rows if user.can_access(r["project_id"])]
 
 
 @router.post("/cleanup/run")
-async def trigger_cleanup(request: Request) -> dict:
+async def trigger_cleanup(
+    request: Request,
+    user: User = Depends(get_current_user),
+) -> dict:
+    user.ensure_admin()
     from ..jobs.cleanup import run_cleanup
 
     pool = request.app.state.pool

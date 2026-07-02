@@ -1,0 +1,14 @@
+# Access control for Upmon. Identity = Pangolin `remote-email` header.
+# Reloaded automatically on save (no restart needed).
+#   role: admin  -> sees every project
+#   role: viewer -> sees only the listed project_ids (required, non-empty)
+# project_ids are collector project IDs (e.g. elogbook-tht, abubot, kribo).
+users:
+  - email: reed.topcoder@gmail.com
+    role: admin
+
+  - email: utinilamsari@gmail.com
+    role: viewer
+    project_ids:
+      - elogbook-tht
+      - elogbook-pulmo

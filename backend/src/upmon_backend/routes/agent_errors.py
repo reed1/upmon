@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from ..access import User, get_current_user
 from ..auth import require_api_key
 
 logger = logging.getLogger("upmon_backend.errors")
@@ -24,6 +25,7 @@ def _parse_date(raw: str) -> date:
 async def get_errors(
     request: Request,
     date: str = Query(description="Date in yyyymmdd format (UTC, must be a completed past day)"),
+    user: User = Depends(get_current_user),
 ) -> dict:
     parsed = _parse_date(date)
 
@@ -42,6 +44,8 @@ async def get_errors(
     total_errors = 0
     sites = {}
     for r in rows:
+        if not user.can_access(r["project_id"]):
+            continue
         key = f"{r['project_id']}/{r['site_key']}"
         if not r["success"]:
             sites[key] = {"success": False, "agent_error": r["agent_error"], "error_count": None}

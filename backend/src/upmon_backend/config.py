@@ -12,3 +12,4 @@ class Settings(BaseSettings):
     api_key: str
     frontend_dir: str = "../frontend/dist"
     agent_config: str = "agents.json"
+    users_config: str = "users.yaml"

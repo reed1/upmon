@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 
+from ..access import User, get_current_user
 from ..auth import require_api_key
 
 router = APIRouter(
@@ -13,7 +14,9 @@ async def get_site_summary(
     request: Request,
     project_id: str,
     site_key: str,
+    user: User = Depends(get_current_user),
 ) -> dict:
+    user.ensure_access(project_id)
     pool = request.app.state.pool
     cleanup_rows, error_rows = await _fetch_summary(pool, project_id, site_key)
     return {
