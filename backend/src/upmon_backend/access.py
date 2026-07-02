@@ -95,6 +95,22 @@ def resolve_user(users: dict[str, UserAccess] | None, email_header: str | None) 
     return User(email=email, role=entry.role, project_ids=project_ids)
 
 
-def get_current_user(request: Request) -> User:
+_SERVICE_USER = User(email="service", role="admin", project_ids=None)
+
+
+def require_pangolin_user(request: Request) -> None:
+    """Identity for the SSO-protected /api mount: resolved from the Pangolin header."""
     users = _load(request.app.state.settings.users_config)
-    return resolve_user(users, request.headers.get(IDENTITY_HEADER))
+    request.state.user = resolve_user(users, request.headers.get(IDENTITY_HEADER))
+
+
+def require_service_key(request: Request) -> None:
+    """Identity for the Pangolin-bypassed /api-public mount: the private API key grants admin."""
+    key = request.headers.get("x-api-key")
+    if not key or key != request.app.state.settings.api_key:
+        raise HTTPException(status_code=401, detail="Invalid or missing service API key")
+    request.state.user = _SERVICE_USER
+
+
+def get_current_user(request: Request) -> User:
+    return request.state.user

@@ -1,12 +1,8 @@
 from fastapi import APIRouter, Depends, Request
 
 from ..access import User, get_current_user
-from ..auth import require_api_key
 
-router = APIRouter(
-    prefix="/api/v1/access-logs",
-    dependencies=[Depends(require_api_key)],
-)
+router = APIRouter(prefix="/access-logs")
 
 
 @router.get("/sites/{project_id}/{site_key}/summary")

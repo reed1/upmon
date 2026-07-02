@@ -12,7 +12,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from ..access import User, get_current_user
-from ..auth import require_api_key
 
 logger = logging.getLogger("upmon_backend.agent")
 
@@ -65,10 +64,7 @@ def get_agent_config(request: Request) -> AgentConfig:
     return _load_agent_config(path)
 
 
-router = APIRouter(
-    prefix="/api/v1/access-logs",
-    dependencies=[Depends(require_api_key)],
-)
+router = APIRouter(prefix="/access-logs")
 
 
 def _get_site(config: AgentConfig, project_id: str, site_key: str):

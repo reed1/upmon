@@ -13,13 +13,12 @@ npm run build      # production build to dist/
 ## Architecture
 
 - Vite `base: '/frontend/'` so assets resolve correctly under the subpath
-- `src/api.ts` — `fetchStatus(projectId)` helper calling `/api/v1/status` with `x-api-key` header
+- `src/api.ts` — `fetchStatus(projectId)` helper calling `/api/v1/status`. No auth header: `/api` is behind Pangolin SSO, which injects the `remote-email` identity the backend authorizes on
 - `src/types.ts` — shared TypeScript interfaces for API responses (`SiteStatus`, `DayEntry`, `DailySummaryResponse`)
-- API base URL and key are baked in at build time via Vite env vars
+- API base URL is baked in at build time via Vite env vars
 
 ## Environment
 
 Env vars prefixed with `VITE_` are embedded at build time. `.env` has defaults, `.env.local` (gitignored) for overrides.
 
 - `VITE_API_BASE_URL` — backend base URL (e.g. `https://upmon.r-mulyadi.com`)
-- `VITE_API_KEY` — API key for backend authentication

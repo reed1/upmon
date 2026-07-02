@@ -1,10 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.responses import RedirectResponse
 
 from . import db
+from .access import require_pangolin_user, require_service_key
 from .config import Settings
 from .routes.agent_cleanup import router as agent_cleanup_router
 from .routes.agent_site_summary import router as agent_site_summary_router
@@ -52,11 +53,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return RedirectResponse(url="/frontend/", status_code=302)
 
     app.include_router(health_router)
-    app.include_router(monitors_router)
-    app.include_router(agent_logs_router)
-    app.include_router(agent_errors_router)
-    app.include_router(agent_cleanup_router)
-    app.include_router(agent_site_summary_router)
+
+    # Same handlers on two mounts: /api is SSO-gated (identity from Pangolin's
+    # remote-email header), /api-public bypasses Pangolin and authenticates with
+    # the private API key (used by background services).
+    api_routers = (
+        monitors_router,
+        agent_logs_router,
+        agent_errors_router,
+        agent_cleanup_router,
+        agent_site_summary_router,
+    )
+    for router in api_routers:
+        app.include_router(router, prefix="/api/v1", dependencies=[Depends(require_pangolin_user)])
+        app.include_router(
+            router,
+            prefix="/api-public/v1",
+            dependencies=[Depends(require_service_key)],
+            include_in_schema=False,
+        )
 
     app.mount(
         "/frontend",

@@ -11,7 +11,6 @@
         chdir: "{{ repo_root }}/frontend"
       environment:
         VITE_API_BASE_URL: "{{ app_url }}"
-        VITE_API_KEY: "{{ lookup('pipe', 'rpass get ' + inventory_hostname + '/upmon/api-key') }}"
       tags: [push-frontend]
 
     - name: Sync frontend dist

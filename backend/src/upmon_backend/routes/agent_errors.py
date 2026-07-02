@@ -4,14 +4,10 @@ from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..access import User, get_current_user
-from ..auth import require_api_key
 
 logger = logging.getLogger("upmon_backend.errors")
 
-router = APIRouter(
-    prefix="/api/v1/errors",
-    dependencies=[Depends(require_api_key)],
-)
+router = APIRouter(prefix="/errors")
 
 
 def _parse_date(raw: str) -> date:

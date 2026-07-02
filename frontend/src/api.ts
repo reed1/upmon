@@ -7,7 +7,6 @@ import type {
 } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const API_KEY = import.meta.env.VITE_API_KEY;
 
 async function api(
   path: string,
@@ -19,9 +18,8 @@ async function api(
       url.searchParams.set(k, v);
     }
   }
-  const res = await fetch(url, {
-    headers: { 'x-api-key': API_KEY },
-  });
+  // Auth is handled by Pangolin SSO (injects the remote-email identity header).
+  const res = await fetch(url);
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`API error ${res.status}: ${body}`);

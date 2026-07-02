@@ -1,14 +1,23 @@
 # Upmon Backend
 
-Python/FastAPI HTTP API serving monitor status data from TimescaleDB and the Vue frontend. Gates API routes with a shared `x-api-key` header and authorizes per-user via the Pangolin-injected `remote-email` header.
+Python/FastAPI HTTP API serving monitor status data from TimescaleDB and the Vue frontend.
 
 ## Access control
 
-The deployment sits behind Pangolin (which handles authentication). Per-user **authorization** is driven by the `remote-email` header Pangolin injects. Config lives in git-tracked `users.yaml`, loaded by `access.py` and hot-reloaded on change.
+The same route handlers are mounted twice (see `main.py`), differing only in how the caller is authenticated:
+
+- **`/api/v1/*`** — behind Pangolin SSO. `require_pangolin_user` resolves the caller from the `remote-email` header Pangolin injects. This is the path the SPA uses (no auth header — Pangolin gates it).
+- **`/api-public/v1/*`** — bypasses Pangolin (see the resource's `bypass_sso_paths`). `require_service_key` authenticates the private `API_KEY` (`x-api-key` header) and grants admin. This is for background services/scripts that don't have a browser session.
+
+Both mounts set `request.state.user`; routes read it via `get_current_user`.
+
+**Per-user authorization** (only meaningful on `/api`, where identity is a real person) is driven by git-tracked `users.yaml`, loaded by `access.py` and hot-reloaded on change:
 
 - `role: admin` — sees every project. `role: viewer` — restricted to a required, non-empty `project_ids` list (`project_ids` are collector project IDs, e.g. `elogbook-tht`).
-- `get_current_user` dependency resolves the caller: missing `remote-email` → 401, unknown email → 403. Routes call `user.ensure_access(project_id)` / `user.can_access(...)` to filter, and `user.ensure_admin()` for global mutations (`/cleanup/run`).
-- If `users.yaml` is absent, access control is **disabled** (every request treated as admin) — preserving pre-access-control behavior. `x-api-key` is a shared app gate baked into the SPA, not a per-user identity.
+- Missing `remote-email` → 401, unknown email → 403. Routes call `user.ensure_access(project_id)` / `user.can_access(...)` to filter, and `user.ensure_admin()` for global mutations (`/cleanup/run`).
+- If `users.yaml` is absent, `/api` authorization is **disabled** (every request treated as admin).
+
+The `API_KEY` is the private service key for `/api-public` only — it is **not** baked into the SPA, so a logged-in viewer cannot extract it to escalate past their `/api` restrictions.
 
 ## Build & Run
 

@@ -6,14 +6,10 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from .. import db
 from ..access import User, get_current_user
-from ..auth import require_api_key
 from ..models import HourlySummary, MonitorStatus, SiteSummaryEntry
 from .agent_logs import _load_agent_config
 
-router = APIRouter(
-    prefix="/api/v1",
-    dependencies=[Depends(require_api_key)],
-)
+router = APIRouter()
 
 
 @router.get("/status", response_model=list[MonitorStatus])
