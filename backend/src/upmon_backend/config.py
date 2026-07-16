@@ -13,3 +13,4 @@ class Settings(BaseSettings):
     frontend_dir: str = "../frontend/dist"
     agent_config: str = "agents.json"
     users_config: str = "users.yaml"
+    monitors_config: str = "../collector-bin/config.json"
