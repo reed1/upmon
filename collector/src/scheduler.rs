@@ -3,6 +3,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use notify::event::EventKind;
 use notify::{Watcher, RecursiveMode, recommended_watcher};
 use reqwest::Client;
 use sqlx::PgPool;
@@ -91,8 +92,10 @@ impl MonitorManager {
         let (tx, mut rx) = mpsc::channel::<()>(16);
         let _watcher = {
             let mut w = recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
-                if res.is_ok() {
-                    let _ = tx.blocking_send(());
+                if let Ok(event) = res {
+                    if matches!(event.kind, EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)) {
+                        let _ = tx.blocking_send(());
+                    }
                 }
             })
             .expect("failed to create file watcher");
