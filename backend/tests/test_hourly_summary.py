@@ -23,7 +23,7 @@ def test_single_project_single_day():
         _row("p1", "s1", "2025-01-15T05:00:00", True),
     ]
     result = build_hourly_summary(rows)
-    days = result["p1"]["s1"]
+    days = result["p1"]["s1"].days
     assert len(days) == 1
     assert days[0].day == date(2025, 1, 15)
     assert days[0].checks[0] == 1
@@ -40,8 +40,8 @@ def test_multiple_projects_and_sites():
     result = build_hourly_summary(rows)
     assert "p1" in result
     assert "p2" in result
-    assert result["p1"]["s1"][0].checks[10] == 1
-    assert result["p2"]["s2"][0].checks[11] == 0
+    assert result["p1"]["s1"].days[0].checks[10] == 1
+    assert result["p2"]["s2"].days[0].checks[11] == 0
 
 
 def test_hours_spanning_two_days():
@@ -50,7 +50,7 @@ def test_hours_spanning_two_days():
         _row("p1", "s1", "2025-01-16T00:00:00", False),
     ]
     result = build_hourly_summary(rows)
-    days = result["p1"]["s1"]
+    days = result["p1"]["s1"].days
     assert len(days) == 2
     assert days[0].day == date(2025, 1, 15)
     assert days[0].checks[23] == 1
