@@ -8,6 +8,26 @@ import type {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+// The API key is issued by /pangolin/api-key (behind Pangolin SSO, which injects
+// the remote-email identity). It's tied to the logged-in user; /api itself
+// bypasses SSO and authenticates with this key. Fetched once and memoized.
+let apiKeyPromise: Promise<string> | null = null;
+
+function getApiKey(): Promise<string> {
+  if (!apiKeyPromise) {
+    apiKeyPromise = fetch(new URL('/pangolin/api-key', BASE_URL))
+      .then(async (res) => {
+        if (!res.ok) {
+          apiKeyPromise = null;
+          throw new Error(`Failed to obtain API key (${res.status})`);
+        }
+        return res.json();
+      })
+      .then((data) => data.api_key as string);
+  }
+  return apiKeyPromise;
+}
+
 async function api(
   path: string,
   params?: Record<string, string>,
@@ -18,8 +38,10 @@ async function api(
       url.searchParams.set(k, v);
     }
   }
-  // Auth is handled by Pangolin SSO (injects the remote-email identity header).
-  const res = await fetch(url);
+  const key = await getApiKey();
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${key}` },
+  });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`API error ${res.status}: ${body}`);

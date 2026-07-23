@@ -13,7 +13,7 @@ npm run build      # production build to dist/
 ## Architecture
 
 - Vite `base: '/frontend/'` so assets resolve correctly under the subpath
-- `src/api.ts` — `fetchStatus(projectId)` helper calling `/api/v1/status`. No auth header: `/api` is behind Pangolin SSO, which injects the `remote-email` identity the backend authorizes on
+- `src/api.ts` — `fetchStatus(projectId)` helper calling `/api/v1/status`. `/api` requires `Authorization: Bearer <key>`; the key is fetched once (memoized) from `/pangolin/api-key`, which is behind Pangolin SSO and returns the logged-in user's key from the injected `remote-email` identity
 - `src/types.ts` — shared TypeScript interfaces for API responses (`SiteStatus`, `DayEntry`, `DailySummaryResponse`)
 - API base URL is baked in at build time via Vite env vars
 

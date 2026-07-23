@@ -4,8 +4,12 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from upmon_backend import access, active_monitors
+from upmon_backend.access import derive_api_key
 from upmon_backend.config import Settings
 from upmon_backend.main import create_app
+
+SECRET = "test-secret"
+ADMIN_HEADERS = {"authorization": f"Bearer {derive_api_key(SECRET, 'admin@b.com')}"}
 
 
 class FakePool:
@@ -46,7 +50,7 @@ def app(tmp_path, monkeypatch):
 
     settings = Settings(
         database_url="postgres://fake:fake@localhost/fake",
-        api_key="test-key",
+        api_key_secret=SECRET,
         frontend_dir="/tmp",
         users_config=str(users),
         monitors_config=str(config),
@@ -64,7 +68,7 @@ async def _get(app, path, headers=None):
 
 
 async def test_status_hides_monitor_absent_from_config(app):
-    resp = await _get(app, "/api/v1/status", {"remote-email": "admin@b.com"})
+    resp = await _get(app, "/api/v1/status", ADMIN_HEADERS)
     assert resp.status_code == 200
     returned = {(r["project_id"], r["site_key"]) for r in resp.json()}
     assert ("abubot", "prod") in returned
@@ -74,7 +78,7 @@ async def test_status_hides_monitor_absent_from_config(app):
 async def test_status_shows_all_when_config_missing(app):
     # Fail-open: no monitors config -> no filtering, retained rows still shown.
     app.state.settings.monitors_config = "/nonexistent/config.json"
-    resp = await _get(app, "/api/v1/status", {"remote-email": "admin@b.com"})
+    resp = await _get(app, "/api/v1/status", ADMIN_HEADERS)
     assert resp.status_code == 200
     returned = {(r["project_id"], r["site_key"]) for r in resp.json()}
     assert ("telebot-infaq", "prod") in returned

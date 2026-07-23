@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str
-    api_key: str
+    api_key_secret: str
     frontend_dir: str = "../frontend/dist"
     agent_config: str = "agents.json"
     users_config: str = "users.yaml"

@@ -4,26 +4,31 @@ Python/FastAPI HTTP API serving monitor status data from TimescaleDB and the Vue
 
 ## Access control
 
-The same route handlers are mounted twice (see `main.py`), differing only in how the caller is authenticated:
+`/api/v1/*` is gated by a per-user **API key** (`require_api_key` in `access.py`), presented as `Authorization: Bearer <key>`. `/api` bypasses Pangolin SSO. The key is never stored: it is `HMAC-SHA256(API_KEY_SECRET, email)` derived from an email in git-tracked `users.yaml`.
 
-- **`/api/v1/*`** — behind Pangolin SSO. `require_pangolin_user` resolves the caller from the `remote-email` header Pangolin injects. This is the path the SPA uses (no auth header — Pangolin gates it).
-- **`/api-public/v1/*`** — bypasses Pangolin (see the resource's `bypass_sso_paths`). `require_service_key` authenticates the private `API_KEY` (`x-api-key` header) and grants admin. This is for background services/scripts that don't have a browser session.
+Callers obtain their key from **`GET /pangolin/api-key`** (`routes/api_key.py`), which stays behind Pangolin SSO. `require_pangolin_user` resolves the caller from the `remote-email` header Pangolin injects, and the route returns that user's derived key. The SPA fetches this once, then carries the Bearer token on every `/api` call. Background scripts use an admin user's key (see the CLI helper below).
 
-Both mounts set `request.state.user`; routes read it via `get_current_user`.
+On each `users.yaml` (re)load, `access.py` builds a `key → User` map, so requests are authorized by dict lookup — no per-request HMAC. `require_api_key` sets `request.state.user`; routes read it via `get_current_user`.
 
-**Per-user authorization** (only meaningful on `/api`, where identity is a real person) is driven by git-tracked `users.yaml`, loaded by `access.py` and hot-reloaded on change:
+**Per-user authorization** is driven by `users.yaml`, hot-reloaded on change:
 
 - `role: admin` — sees every project. `role: viewer` — restricted to a required, non-empty `project_ids` list (`project_ids` are collector project IDs, e.g. `elogbook-tht`).
-- Missing `remote-email` → 401, unknown email → 403. Routes call `user.ensure_access(project_id)` / `user.can_access(...)` to filter, and `user.ensure_admin()` for global mutations (`/cleanup/run`).
-- If `users.yaml` is absent, `/api` authorization is **disabled** (every request treated as admin).
+- Missing/unknown Bearer key → 401. On the SSO issuer, missing `remote-email` → 401, unknown email → 403. Routes call `user.ensure_access(project_id)` / `user.can_access(...)` to filter, and `user.ensure_admin()` for global mutations (`/cleanup/run`).
+- If `users.yaml` is absent, no keys are valid → every `/api` request is 401.
 
-The `API_KEY` is the private service key for `/api-public` only — it is **not** baked into the SPA, so a logged-in viewer cannot extract it to escalate past their `/api` restrictions.
+**External:** Pangolin must bypass SSO for `/api` (and `/health`) while keeping `/pangolin` and `/frontend` gated — set via the resource's `bypass_sso_paths`.
+
+### CLI helper
+
+```
+python -m upmon_backend.cli.get_api_key <email>   # prints the Bearer key for a users.yaml email
+```
 
 ## Build & Run
 
 ```
 uv sync              # install dependencies
-uv run fastapi dev              # start dev server (requires DATABASE_URL, API_KEY in env)
+uv run fastapi dev              # start dev server (requires DATABASE_URL, API_KEY_SECRET in env)
 uv run pytest        # run tests
 ```
 

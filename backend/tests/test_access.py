@@ -5,7 +5,9 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from upmon_backend import access
-from upmon_backend.access import AccessConfig, User, resolve_user
+from upmon_backend.access import AccessConfig, User, derive_api_key, resolve_user
+
+SECRET = "test-secret"
 
 
 def _users(raw: dict) -> dict:
@@ -72,7 +74,7 @@ def test_load_parses_and_reloads_on_change(tmp_path, monkeypatch):
     monkeypatch.setattr(access, "_cache", access._AccessCache())
     path = tmp_path / "users.yaml"
     path.write_text("users:\n  - email: a@b.com\n    role: admin\n")
-    loaded = access._load(str(path))
+    loaded = access._load(str(path), SECRET)
     assert set(loaded) == {"a@b.com"}
 
     original_mtime = path.stat().st_mtime
@@ -81,10 +83,30 @@ def test_load_parses_and_reloads_on_change(tmp_path, monkeypatch):
         "  - email: c@d.com\n    role: admin\n"
     )
     os.utime(path, (original_mtime + 10, original_mtime + 10))
-    reloaded = access._load(str(path))
+    reloaded = access._load(str(path), SECRET)
     assert set(reloaded) == {"a@b.com", "c@d.com"}
 
 
 def test_load_missing_file_disables(tmp_path, monkeypatch):
     monkeypatch.setattr(access, "_cache", access._AccessCache())
-    assert access._load(str(tmp_path / "nope.yaml")) is None
+    assert access._load(str(tmp_path / "nope.yaml"), SECRET) is None
+
+
+def test_derive_api_key_is_deterministic_and_case_insensitive():
+    assert derive_api_key(SECRET, "a@b.com") == derive_api_key(SECRET, "  A@B.com ")
+    assert derive_api_key(SECRET, "a@b.com") != derive_api_key("other", "a@b.com")
+
+
+def test_load_builds_key_to_user_map(tmp_path, monkeypatch):
+    monkeypatch.setattr(access, "_cache", access._AccessCache())
+    path = tmp_path / "users.yaml"
+    path.write_text(
+        "users:\n  - email: admin@b.com\n    role: admin\n"
+        "  - email: v@b.com\n    role: viewer\n    project_ids: [p1]\n"
+    )
+    access._load(str(path), SECRET)
+
+    admin = access._cache.by_key[derive_api_key(SECRET, "admin@b.com")]
+    assert admin.role == "admin" and admin.project_ids is None
+    viewer = access._cache.by_key[derive_api_key(SECRET, "v@b.com")]
+    assert viewer.can_access("p1") and not viewer.can_access("p2")
