@@ -28,9 +28,9 @@ def _execute(cursor, sql, bindings=None):
     return {"columns": columns, "rows": rows}
 
 
-def _time_conditions(start, end):
+def _time_conditions(start_time, end):
     conditions = ["epoch_sec >= ?"]
-    bindings = [start]
+    bindings = [start_time]
     if end is not None:
         conditions.append("epoch_sec < ?")
         bindings.append(end)
@@ -38,7 +38,7 @@ def _time_conditions(start, end):
 
 
 def _filter_conditions(params):
-    conditions, bindings = _time_conditions(params["start"], params.get("end"))
+    conditions, bindings = _time_conditions(params["start_time"], params.get("end"))
 
     exception_type = params.get("exception_type")
     if exception_type == "none":
@@ -57,6 +57,7 @@ def _filter_conditions(params):
 
 
 _LOGS_ORDER_COLUMNS = {"epoch_sec", "method", "path", "status_code", "duration_ms"}
+_LOGS_MAX_LIMIT = 1000
 
 
 def view_logs(cursor, params):
@@ -65,11 +66,26 @@ def view_logs(cursor, params):
     order_by = params.get("order_by", "epoch_sec")
     if order_by not in _LOGS_ORDER_COLUMNS:
         respond(error=f"Invalid order_by: {order_by}")
-    direction = "ASC" if params.get("order_dir") == "asc" else "DESC"
+    ascending = params.get("order_dir") == "asc"
+    direction = "ASC" if ascending else "DESC"
+
+    start_id = params.get("start_id")
+    if start_id is not None:
+        # Row-value comparison against the cursor row keeps the keyset stable for
+        # any order_by column, with id breaking ties.
+        operator = ">" if ascending else "<"
+        conditions.append(
+            f"({order_by}, id) {operator} (SELECT {order_by}, id FROM access_log WHERE id = ?)"
+        )
+        bindings.append(start_id)
+
+    limit = min(int(params.get("limit") or 100), _LOGS_MAX_LIMIT)
 
     where = f"WHERE {' AND '.join(conditions)}"
-    sql = f"SELECT * FROM access_log {where} ORDER BY {order_by} {direction} LIMIT 100"
-    return _execute(cursor, sql, bindings)
+    sql = (
+        f"SELECT * FROM access_log {where} ORDER BY {order_by} {direction}, id {direction} LIMIT ?"
+    )
+    return _execute(cursor, sql, bindings + [limit])
 
 
 def _bucket_format(span_minutes):
@@ -81,7 +97,7 @@ def _bucket_format(span_minutes):
 
 
 def view_stats(cursor, params):
-    time_conditions, time_bindings = _time_conditions(params["start"], params.get("end"))
+    time_conditions, time_bindings = _time_conditions(params["start_time"], params.get("end"))
     time_where = f"WHERE {' AND '.join(time_conditions)}"
 
     filtered_conditions, filtered_bindings = _filter_conditions(params)
@@ -136,7 +152,7 @@ def view_stats(cursor, params):
     )
 
     end = params.get("end") or int(time.time())
-    span_minutes = (end - params["start"]) / 60
+    span_minutes = (end - params["start_time"]) / 60
     bucket_fmt = _bucket_format(span_minutes)
 
     volume = _execute(
@@ -165,7 +181,7 @@ def view_stats(cursor, params):
 
 
 def view_error_count(cursor, params):
-    conditions, bindings = _time_conditions(params["start"], params.get("end"))
+    conditions, bindings = _time_conditions(params["start_time"], params.get("end"))
     conditions.append("exception_is_unexpected = 1")
     where = f"WHERE {' AND '.join(conditions)}"
     return _execute(cursor, f"SELECT COUNT(*) AS error_count FROM access_log {where}", bindings)

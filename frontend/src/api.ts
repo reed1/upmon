@@ -85,7 +85,7 @@ export async function fetchDailySummary(
 export async function fetchAccessLogStats(
   projectId: string,
   siteKey: string,
-  start: string,
+  startTime: string,
   end?: string,
   exceptionType?: string,
   os?: string,
@@ -93,7 +93,7 @@ export async function fetchAccessLogStats(
   method?: string,
 ): Promise<AccessLogStats> {
   const params = setOptional(
-    { start },
+    { start_time: startTime },
     {
       end,
       exception_type: exceptionType,
@@ -109,7 +109,7 @@ export async function fetchAccessLogStats(
 export async function fetchAccessLogEntries(
   projectId: string,
   siteKey: string,
-  start: string,
+  startTime: string,
   end?: string,
   exceptionType?: string,
   os?: string,
@@ -117,9 +117,10 @@ export async function fetchAccessLogEntries(
   method?: string,
   orderBy?: string,
   orderDir?: string,
+  limit?: number,
 ): Promise<AccessLogEntries> {
   const params = setOptional(
-    { start },
+    { start_time: startTime },
     {
       end,
       exception_type: exceptionType,
@@ -128,9 +129,18 @@ export async function fetchAccessLogEntries(
       method,
       order_by: orderBy,
       order_dir: orderDir,
+      limit: limit ? String(limit) : undefined,
     },
   );
   const res = await api(siteUrl(projectId, siteKey, 'logs'), params);
+  return res.json();
+}
+
+// `next` is a server-built relative path carrying its own query string.
+export async function fetchAccessLogPage(
+  next: string,
+): Promise<AccessLogEntries> {
+  const res = await api(next);
   return res.json();
 }
 

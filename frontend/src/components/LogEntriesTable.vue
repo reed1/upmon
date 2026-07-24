@@ -7,10 +7,13 @@ const props = defineProps<{
   entries: AccessLogEntries;
   sortColumn: string;
   sortDir: 'asc' | 'desc';
+  hasMore: boolean;
+  loadingMore: boolean;
 }>();
 
 const emit = defineEmits<{
   sort: [column: string, dir: 'asc' | 'desc'];
+  loadMore: [];
 }>();
 
 const expandedRow = ref<number | null>(null);
@@ -117,9 +120,7 @@ function rowToObject(row: any[], columns: string[]): Record<string, unknown> {
                 </svg>
               </td>
               <td class="py-1.5 pr-4 text-gray-400 whitespace-nowrap">
-                {{
-                  formatTimestamp(cell(row, entries.columns, 'epoch_sec'))
-                }}
+                {{ formatTimestamp(cell(row, entries.columns, 'epoch_sec')) }}
               </td>
               <td class="py-1.5 pr-4 font-mono">
                 {{ cell(row, entries.columns, 'method') }}
@@ -138,9 +139,7 @@ function rowToObject(row: any[], columns: string[]): Record<string, unknown> {
                 </span>
               </td>
               <td class="py-1.5 pr-4 text-right text-gray-400">
-                {{
-                  formatDuration(cell(row, entries.columns, 'duration_ms'))
-                }}
+                {{ formatDuration(cell(row, entries.columns, 'duration_ms')) }}
               </td>
             </tr>
             <tr v-if="expandedRow === i">
@@ -154,6 +153,16 @@ function rowToObject(row: any[], columns: string[]): Record<string, unknown> {
           </template>
         </tbody>
       </table>
+    </div>
+
+    <div v-if="hasMore" class="mt-3 flex justify-center">
+      <button
+        class="px-3 py-1.5 text-xs rounded-md border transition-colors bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-600 hover:text-gray-200 disabled:opacity-50 disabled:cursor-default cursor-pointer"
+        :disabled="loadingMore"
+        @click="emit('loadMore')"
+      >
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
+      </button>
     </div>
   </div>
 </template>

@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import {
   fetchAccessLogStats,
   fetchAccessLogEntries,
+  fetchAccessLogPage,
   fetchSiteSummary,
 } from '../api';
 import type {
@@ -47,6 +48,7 @@ const start = ref(new Date(Date.now() - 30 * 60_000).toISOString());
 const end: Ref<string | null> = ref(null);
 const stats: Ref<AccessLogStats | null> = ref(null);
 const entries: Ref<AccessLogEntries | null> = ref(null);
+const loadingMore = ref(false);
 const loading = ref(true);
 const error: Ref<string | null> = ref(null);
 
@@ -256,6 +258,23 @@ async function reloadLogEntries() {
     );
   } catch (e) {
     error.value = (e as Error).message;
+  }
+}
+
+async function loadMore() {
+  const next = entries.value?.next;
+  if (!next || loadingMore.value) return;
+  loadingMore.value = true;
+  try {
+    const page = await fetchAccessLogPage(next);
+    entries.value = {
+      ...page,
+      rows: [...entries.value!.rows, ...page.rows],
+    };
+  } catch (e) {
+    error.value = (e as Error).message;
+  } finally {
+    loadingMore.value = false;
   }
 }
 
@@ -515,7 +534,10 @@ onMounted(() => {
         :entries="entries"
         :sort-column="sortColumn"
         :sort-dir="sortDir"
+        :has-more="entries.next !== null"
+        :loading-more="loadingMore"
         @sort="onSort"
+        @load-more="loadMore"
       />
     </template>
   </div>

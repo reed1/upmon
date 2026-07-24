@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime as dt
 from pathlib import Path
+from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -46,7 +47,11 @@ def _load_agent_config(path: str) -> AgentConfig:
     link_mtime = os.lstat(path).st_mtime
     real_mtime = Path(path).stat().st_mtime
 
-    if _cache.config is not None and link_mtime == _cache.link_mtime and real_mtime == _cache.real_mtime:
+    if (
+        _cache.config is not None
+        and link_mtime == _cache.link_mtime
+        and real_mtime == _cache.real_mtime
+    ):
         return _cache.config
 
     with open(path) as f:
@@ -122,11 +127,25 @@ def _parse_json_columns(result: dict, columns: Iterable[str] = _JSON_PARSE_COLUM
     }
 
 
+def _next_url(request: Request, result: dict, limit: int) -> str | None:
+    rows = result["rows"]
+    if len(rows) < limit:
+        return None
+    last_id = rows[-1][result["columns"].index("id")]
+    params = {k: v for k, v in request.query_params.items() if k != "start_id"}
+    params["start_id"] = str(last_id)
+    params["limit"] = str(limit)
+    return f"{request.url.path}?{urlencode(params)}"
+
+
 @router.get("/sites/{project_id}/{site_key}/logs")
 async def get_logs(
+    request: Request,
     project_id: str,
     site_key: str,
-    start: str = Query(),
+    start_time: str = Query(),
+    start_id: int | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
     end: str | None = Query(None),
     exception_type: str | None = Query(None),
     os: str | None = Query(None),
@@ -143,7 +162,9 @@ async def get_logs(
         site,
         "logs",
         {
-            "start": _to_epoch(start),
+            "start_time": _to_epoch(start_time),
+            "start_id": start_id,
+            "limit": limit,
             "end": _to_epoch(end) if end else None,
             "exception_type": exception_type,
             "os": os,
@@ -153,14 +174,14 @@ async def get_logs(
             "order_dir": order_dir,
         },
     )
-    return _parse_json_columns(result)
+    return {**_parse_json_columns(result), "next": _next_url(request, result, limit)}
 
 
 @router.get("/sites/{project_id}/{site_key}/stats")
 async def get_stats(
     project_id: str,
     site_key: str,
-    start: str = Query(),
+    start_time: str = Query(),
     end: str | None = Query(None),
     exception_type: str | None = Query(None),
     os: str | None = Query(None),
@@ -175,7 +196,7 @@ async def get_stats(
         site,
         "stats",
         {
-            "start": _to_epoch(start),
+            "start_time": _to_epoch(start_time),
             "end": _to_epoch(end) if end else None,
             "exception_type": exception_type,
             "os": os,
@@ -223,5 +244,6 @@ def _split_distributions(result: dict) -> tuple[dict, dict, dict, dict]:
         "client_type": ["client_type", "count"],
     }
     return tuple(
-        {"columns": column_names[k], "rows": groups[k]} for k in ("exception_type", "method", "os", "client_type")
+        {"columns": column_names[k], "rows": groups[k]}
+        for k in ("exception_type", "method", "os", "client_type")
     )

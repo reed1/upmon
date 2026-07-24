@@ -12,12 +12,18 @@ def _get_site(config, project_id, site_key):
         if site.project_id == project_id and site.site_key == site_key:
             return site
     print(f"Unknown site: {project_id}/{site_key}", file=sys.stderr)
-    print("Available:", ", ".join(f"{s.project_id}/{s.site_key}" for s in config.sites), file=sys.stderr)
+    print(
+        "Available:",
+        ", ".join(f"{s.project_id}/{s.site_key}" for s in config.sites),
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Show unexpected exceptions for a site on a given date")
+    parser = argparse.ArgumentParser(
+        description="Show unexpected exceptions for a site on a given date"
+    )
     parser.add_argument("project_id")
     parser.add_argument("site_key")
     parser.add_argument("date", help="UTC date in YYYYMMDD format")
@@ -33,7 +39,11 @@ async def main():
     config = _load_agent_config(settings.agent_config)
     site = _get_site(config, args.project_id, args.site_key)
 
-    result = await _query_agent(site, "logs", {"start": start, "end": end, "exception_type": "unexpected"})
+    result = await _query_agent(
+        site,
+        "logs",
+        {"start_time": start, "end": end, "exception_type": "unexpected", "limit": 1000},
+    )
 
     columns = result["columns"]
     rows = result["rows"]

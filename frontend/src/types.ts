@@ -40,6 +40,7 @@ export interface AccessLogStats {
 export interface AccessLogEntries {
   columns: string[];
   rows: any[][];
+  next: string | null;
 }
 
 export interface CleanupLogEntry {
