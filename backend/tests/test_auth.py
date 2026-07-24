@@ -20,6 +20,7 @@ def app(tmp_path, monkeypatch):
         api_key_secret=SECRET,
         frontend_dir="/tmp",
         users_config=str(users),
+        dev_identity_email=None,
     )
     return create_app(settings)
 

@@ -137,7 +137,9 @@ def require_pangolin_user(request: Request) -> User:
     """Identity for the SSO-protected /pangolin key issuer: resolved from the Pangolin header."""
     settings = request.app.state.settings
     users = _load(settings.users_config, settings.api_key_secret)
-    user = resolve_user(users, request.headers.get(IDENTITY_HEADER))
+    # Local dev runs without Pangolin, so nothing injects the identity header.
+    email = request.headers.get(IDENTITY_HEADER) or settings.dev_identity_email
+    user = resolve_user(users, email)
     request.state.user = user
     return user
 

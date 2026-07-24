@@ -18,6 +18,10 @@ On each `users.yaml` (re)load, `access.py` builds a `key → User` map, so reque
 
 **External:** Pangolin must bypass SSO for `/api` (and `/health`) while keeping `/pangolin` and `/frontend` gated — set via the resource's `bypass_sso_paths`.
 
+### Local dev
+
+There is no Pangolin locally, so nothing injects `remote-email` and `/pangolin/api-key` would always 401. Set `DEV_IDENTITY_EMAIL` in `.env.local` to a `users.yaml` email; `require_pangolin_user` falls back to it when the header is absent, so the SPA's key fetch works unchanged. Never set it in production — a real `remote-email` header always wins, but an unset value is the only thing keeping the issuer closed.
+
 ### CLI helper
 
 ```
