@@ -15,3 +15,5 @@ Uptime monitoring system. Monorepo with 4 components:
 ## Documentation
 
 **docs/** contains integration guides for adding Upmon-compatible access logging to applications, with framework-specific examples (FastAPI, Laravel).
+
+**docs/agent-debugging.md** is the runbook for pulling a site's browser requests for a given time window through the API — read it before debugging a reported production error.
