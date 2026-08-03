@@ -9,7 +9,7 @@
         repo: git@github.com:reed1/upmon.git
         dest: "{{ app_dir }}"
         version: main
-      tags: [push-all]
+      tags: [push-any]
 
     - name: Enable linger
       ansible.builtin.command:
