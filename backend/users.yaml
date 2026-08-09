@@ -12,6 +12,7 @@ users:
     project_ids:
       - elogbook-tht
       - elogbook-pulmo
+      - simetris
 
   - email: bow@qedtech.id
     role: viewer
