@@ -13,6 +13,7 @@ users:
       - elogbook-tht
       - elogbook-pulmo
       - simetris
+      - pori-member
 
   - email: bow@qedtech.id
     role: viewer
