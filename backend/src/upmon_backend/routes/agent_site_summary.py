@@ -27,7 +27,8 @@ async def _fetch_summary(pool, project_id: str, site_key: str):
     return await asyncio.gather(
         pool.fetch(
             """SELECT id, executed_at, retention_days,
-                      status_code, deleted_count, duration_ms, error_message
+                      status_code, deleted_count, frontend_deleted_count,
+                      duration_ms, error_message
                FROM agent_daily_cleanup
                WHERE project_id = $1 AND site_key = $2
                ORDER BY id DESC
@@ -36,7 +37,7 @@ async def _fetch_summary(pool, project_id: str, site_key: str):
             site_key,
         ),
         pool.fetch(
-            """SELECT date, error_count, agent_error
+            """SELECT date, error_count, frontend_error_count, agent_error
                FROM agent_daily_error_count
                WHERE project_id = $1 AND site_key = $2
                  AND success = TRUE

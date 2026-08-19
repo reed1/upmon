@@ -28,6 +28,11 @@ def _execute(cursor, sql, bindings=None):
     return {"columns": columns, "rows": rows}
 
 
+def _table_exists(cursor, table):
+    cursor.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [table])
+    return cursor.fetchone() is not None
+
+
 def _time_conditions(start_time, end):
     conditions = ["epoch_sec >= ?"]
     bindings = [start_time]
@@ -56,16 +61,25 @@ def _filter_conditions(params):
     return conditions, bindings
 
 
-_LOGS_ORDER_COLUMNS = {"epoch_sec", "method", "path", "status_code", "duration_ms"}
+# Maps an allowed order_by column to the SQL expression to sort by. Nullable
+# columns are coalesced: a NULL on either side of the keyset row-value comparison
+# makes it evaluate to NULL, which drops those rows from every page after the
+# first and ends paging early when the cursor row itself is NULL.
+_LOGS_ORDER_COLUMNS = {
+    "epoch_sec": "epoch_sec",
+    "method": "method",
+    "path": "path",
+    "status_code": "IFNULL(status_code, -1)",
+    "duration_ms": "duration_ms",
+}
 _LOGS_MAX_LIMIT = 1000
 
 
-def view_logs(cursor, params):
-    conditions, bindings = _filter_conditions(params)
-
+def _paged_query(cursor, table, params, order_columns, conditions, bindings):
     order_by = params.get("order_by", "epoch_sec")
-    if order_by not in _LOGS_ORDER_COLUMNS:
+    if order_by not in order_columns:
         respond(error=f"Invalid order_by: {order_by}")
+    sort = order_columns[order_by]
     ascending = params.get("order_dir") == "asc"
     direction = "ASC" if ascending else "DESC"
 
@@ -74,18 +88,19 @@ def view_logs(cursor, params):
         # Row-value comparison against the cursor row keeps the keyset stable for
         # any order_by column, with id breaking ties.
         operator = ">" if ascending else "<"
-        conditions.append(
-            f"({order_by}, id) {operator} (SELECT {order_by}, id FROM access_log WHERE id = ?)"
-        )
+        conditions.append(f"({sort}, id) {operator} (SELECT {sort}, id FROM {table} WHERE id = ?)")
         bindings.append(start_id)
 
     limit = min(int(params.get("limit") or 100), _LOGS_MAX_LIMIT)
 
     where = f"WHERE {' AND '.join(conditions)}"
-    sql = (
-        f"SELECT * FROM access_log {where} ORDER BY {order_by} {direction}, id {direction} LIMIT ?"
-    )
+    sql = f"SELECT * FROM {table} {where} ORDER BY {sort} {direction}, id {direction} LIMIT ?"
     return _execute(cursor, sql, bindings + [limit])
+
+
+def view_logs(cursor, params):
+    conditions, bindings = _filter_conditions(params)
+    return _paged_query(cursor, "access_log", params, _LOGS_ORDER_COLUMNS, conditions, bindings)
 
 
 def _bucket_format(span_minutes):
@@ -187,10 +202,163 @@ def view_error_count(cursor, params):
     return _execute(cursor, f"SELECT COUNT(*) AS error_count FROM access_log {where}", bindings)
 
 
+_FRONTEND_ERROR_TABLE = "frontend_error"
+_FRONTEND_ERROR_ORDER_COLUMNS = {
+    "epoch_sec": "epoch_sec",
+    "kind": "kind",
+    "error_class": "IFNULL(error_class, '')",
+    "page_url": "page_url",
+}
+
+
+def _empty_result():
+    return {"columns": [], "rows": []}
+
+
+def _frontend_filter_conditions(params):
+    conditions, bindings = _time_conditions(params["start_time"], params.get("end"))
+
+    for col in ("kind", "os", "client_type", "fingerprint", "session_id"):
+        if params.get(col) is not None:
+            conditions.append(f"{col} = ?")
+            bindings.append(params[col])
+
+    return conditions, bindings
+
+
+def view_frontend_errors(cursor, params):
+    if not _table_exists(cursor, _FRONTEND_ERROR_TABLE):
+        return _empty_result()
+
+    conditions, bindings = _frontend_filter_conditions(params)
+    return _paged_query(
+        cursor,
+        _FRONTEND_ERROR_TABLE,
+        params,
+        _FRONTEND_ERROR_ORDER_COLUMNS,
+        conditions,
+        bindings,
+    )
+
+
+def view_frontend_error_stats(cursor, params):
+    if not _table_exists(cursor, _FRONTEND_ERROR_TABLE):
+        return {
+            "summary": _empty_result(),
+            "distributions": _empty_result(),
+            "volume": _empty_result(),
+            "top_errors": _empty_result(),
+        }
+
+    time_conditions, time_bindings = _time_conditions(params["start_time"], params.get("end"))
+    time_where = f"WHERE {' AND '.join(time_conditions)}"
+
+    filtered_conditions, filtered_bindings = _frontend_filter_conditions(params)
+    filtered_where = f"WHERE {' AND '.join(filtered_conditions)}"
+
+    summary = _execute(
+        cursor,
+        f"""
+        SELECT
+            COUNT(*) AS total_errors,
+            COUNT(DISTINCT fingerprint) AS distinct_errors,
+            COUNT(DISTINCT session_id) AS affected_sessions
+        FROM frontend_error {filtered_where}
+    """,
+        filtered_bindings,
+    )
+
+    distributions = _execute(
+        cursor,
+        f"""
+        WITH base AS (
+            SELECT * FROM frontend_error {time_where}
+        )
+        SELECT 'kind' AS dist, kind AS value, COUNT(*) AS count
+        FROM base
+        GROUP BY value
+
+        UNION ALL
+        SELECT 'error_class', error_class, COUNT(*)
+        FROM base
+        GROUP BY error_class
+
+        UNION ALL
+        SELECT 'os', os, COUNT(*)
+        FROM base
+        GROUP BY os
+
+        UNION ALL
+        SELECT 'client_type', client_type, COUNT(*)
+        FROM base
+        GROUP BY client_type
+    """,
+        time_bindings,
+    )
+
+    end = params.get("end") or int(time.time())
+    span_minutes = (end - params["start_time"]) / 60
+    bucket_fmt = _bucket_format(span_minutes)
+
+    volume = _execute(
+        cursor,
+        f"""
+        SELECT
+            strftime('{bucket_fmt}', epoch_sec, 'unixepoch') AS bucket,
+            COUNT(*) AS errors
+        FROM frontend_error {filtered_where}
+        GROUP BY bucket
+        ORDER BY bucket
+    """,
+        filtered_bindings,
+    )
+
+    # SQLite fills bare columns from the row that produced MAX(epoch_sec), so each
+    # group carries the details of its most recent occurrence.
+    top_errors = _execute(
+        cursor,
+        f"""
+        SELECT
+            fingerprint,
+            error_class,
+            message,
+            kind,
+            page_url,
+            COUNT(*) AS count,
+            COUNT(DISTINCT session_id) AS sessions,
+            MAX(epoch_sec) AS last_seen
+        FROM frontend_error {filtered_where}
+        GROUP BY fingerprint
+        ORDER BY count DESC
+        LIMIT 20
+    """,
+        filtered_bindings,
+    )
+
+    return {
+        "summary": summary,
+        "distributions": distributions,
+        "volume": volume,
+        "top_errors": top_errors,
+    }
+
+
+def view_frontend_error_count(cursor, params):
+    if not _table_exists(cursor, _FRONTEND_ERROR_TABLE):
+        return {"columns": ["error_count"], "rows": [[None]]}
+
+    conditions, bindings = _time_conditions(params["start_time"], params.get("end"))
+    where = f"WHERE {' AND '.join(conditions)}"
+    return _execute(cursor, f"SELECT COUNT(*) AS error_count FROM frontend_error {where}", bindings)
+
+
 VIEWS = {
     "logs": view_logs,
     "stats": view_stats,
     "error_count": view_error_count,
+    "frontend_errors": view_frontend_errors,
+    "frontend_error_stats": view_frontend_error_stats,
+    "frontend_error_count": view_frontend_error_count,
 }
 
 
@@ -236,14 +404,26 @@ def cmd_cleanup(params):
     conn = sqlite3.connect(db_path)
     try:
         cursor = conn.cursor()
+        cutoff = [f"-{retention_days} days"]
         cursor.execute(
             "DELETE FROM access_log WHERE epoch_sec < CAST(strftime('%s', 'now', ?) AS INTEGER)",
-            [f"-{retention_days} days"],
+            cutoff,
         )
         deleted = cursor.rowcount
+
+        # Sites adopt frontend_error on their own schedule; a host without it must
+        # still get its access_log pruned.
+        frontend_deleted = None
+        if _table_exists(cursor, _FRONTEND_ERROR_TABLE):
+            cursor.execute(
+                "DELETE FROM frontend_error WHERE epoch_sec < CAST(strftime('%s', 'now', ?) AS INTEGER)",
+                cutoff,
+            )
+            frontend_deleted = cursor.rowcount
+
         cursor.execute("PRAGMA incremental_vacuum")
         conn.commit()
-        respond(result={"deleted": deleted})
+        respond(result={"deleted": deleted, "frontend_deleted": frontend_deleted})
     finally:
         conn.close()
 

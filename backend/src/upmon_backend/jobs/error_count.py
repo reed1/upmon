@@ -9,12 +9,14 @@ logger = logging.getLogger("upmon_backend.jobs.error_count")
 
 _INSERT_ERROR_COUNT_SQL = """
 INSERT INTO agent_daily_error_count
-    (date, project_id, site_key, success, agent_error, error_count, recorded_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+    (date, project_id, site_key, success, agent_error, error_count,
+     frontend_error_count, recorded_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (project_id, site_key, date) DO UPDATE SET
     success = EXCLUDED.success,
     agent_error = EXCLUDED.agent_error,
     error_count = EXCLUDED.error_count,
+    frontend_error_count = EXCLUDED.frontend_error_count,
     recorded_at = EXCLUDED.recorded_at
 """
 
@@ -41,6 +43,19 @@ async def _count_errors_for_site(pool, site: AgentSite, yesterday):
         agent_error = str(e)
         logger.error("Error count failed for %s/%s: %s", site.project_id, site.site_key, e)
 
+    # Kept separate from the backend count above: a site that has not adopted the
+    # frontend_error table must not have its backend rollup marked as failed.
+    frontend_error_count = None
+    try:
+        result = await _query_agent(
+            site, "frontend_error_count", {"start_time": start_epoch, "end": end_epoch}
+        )
+        rows = result.get("rows", [])
+        if rows and rows[0]:
+            frontend_error_count = rows[0][0]
+    except Exception as e:
+        logger.error("Frontend error count failed for %s/%s: %s", site.project_id, site.site_key, e)
+
     await pool.execute(
         _INSERT_ERROR_COUNT_SQL,
         yesterday,
@@ -49,12 +64,18 @@ async def _count_errors_for_site(pool, site: AgentSite, yesterday):
         agent_error is None,
         agent_error,
         error_count,
+        frontend_error_count,
         datetime.now(timezone.utc),
     )
 
     if error_count is not None:
         logger.info(
-            "Error count %s/%s on %s: %d", site.project_id, site.site_key, yesterday, error_count
+            "Error count %s/%s on %s: %d backend, %s frontend",
+            site.project_id,
+            site.site_key,
+            yesterday,
+            error_count,
+            frontend_error_count if frontend_error_count is not None else "n/a",
         )
 
 

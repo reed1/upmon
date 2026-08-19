@@ -9,7 +9,11 @@ const props = defineProps<{
 const open = ref(false);
 
 const hasErrors = computed(() =>
-  props.entries.some((e) => e.error_count != null && e.error_count > 0),
+  props.entries.some(
+    (e) =>
+      (e.error_count != null && e.error_count > 0) ||
+      (e.frontend_error_count != null && e.frontend_error_count > 0),
+  ),
 );
 
 if (hasErrors.value) open.value = true;
@@ -49,7 +53,8 @@ function formatDate(iso: string): string {
         <thead>
           <tr class="text-gray-500 border-b border-gray-800 text-left">
             <th class="px-3 py-2">Date</th>
-            <th class="px-3 py-2 text-right">Error Count</th>
+            <th class="px-3 py-2 text-right">Backend</th>
+            <th class="px-3 py-2 text-right">Frontend</th>
             <th class="px-3 py-2">Error</th>
           </tr>
         </thead>
@@ -71,6 +76,24 @@ function formatDate(iso: string): string {
                 "
               >
                 {{ entry.error_count ?? '-' }}
+              </span>
+            </td>
+            <td class="px-3 py-2 text-right">
+              <span
+                :class="
+                  entry.frontend_error_count == null
+                    ? 'text-gray-600'
+                    : entry.frontend_error_count > 0
+                      ? 'text-red-400'
+                      : 'text-emerald-400'
+                "
+                :title="
+                  entry.frontend_error_count == null
+                    ? 'Site has no frontend_error table'
+                    : ''
+                "
+              >
+                {{ entry.frontend_error_count ?? '-' }}
               </span>
             </td>
             <td class="px-3 py-2 max-w-xs truncate text-red-400">

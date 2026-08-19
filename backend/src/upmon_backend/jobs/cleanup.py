@@ -15,8 +15,8 @@ logger = logging.getLogger("upmon_backend.jobs.cleanup")
 _INSERT_LOG_SQL = """
 INSERT INTO agent_daily_cleanup
     (executed_at, project_id, site_key, agent_url, retention_days,
-     status_code, deleted_count, duration_ms, error_message)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     status_code, deleted_count, frontend_deleted_count, duration_ms, error_message)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 """
 
 
@@ -25,6 +25,7 @@ async def _cleanup_site(pool, site: AgentSite):
     start = time.monotonic()
     status_code = None
     deleted_count = None
+    frontend_deleted_count = None
     error = None
 
     try:
@@ -46,7 +47,10 @@ async def _cleanup_site(pool, site: AgentSite):
             if data.get("error"):
                 error = data["error"]
             else:
-                deleted_count = data.get("result", {}).get("deleted")
+                result = data.get("result", {})
+                deleted_count = result.get("deleted")
+                # null on sites that have not adopted the frontend_error table yet
+                frontend_deleted_count = result.get("frontend_deleted")
         else:
             error = resp.text
     except Exception as e:
@@ -63,6 +67,7 @@ async def _cleanup_site(pool, site: AgentSite):
         site.retention_days,
         status_code,
         deleted_count,
+        frontend_deleted_count,
         duration_ms,
         error,
     )
@@ -71,7 +76,12 @@ async def _cleanup_site(pool, site: AgentSite):
         logger.error("Cleanup failed for %s/%s: %s", site.project_id, site.site_key, error)
     else:
         logger.info(
-            "Cleanup %s/%s: deleted %d rows in %dms", site.project_id, site.site_key, deleted_count or 0, duration_ms
+            "Cleanup %s/%s: deleted %d access log + %d frontend error rows in %dms",
+            site.project_id,
+            site.site_key,
+            deleted_count or 0,
+            frontend_deleted_count or 0,
+            duration_ms,
         )
 
 

@@ -10,6 +10,7 @@ from .config import Settings
 from .routes.agent_cleanup import router as agent_cleanup_router
 from .routes.agent_site_summary import router as agent_site_summary_router
 from .routes.agent_errors import router as agent_errors_router
+from .routes.agent_frontend_errors import router as agent_frontend_errors_router
 from .routes.agent_logs import router as agent_logs_router
 from .routes.api_key import router as api_key_router
 from .routes.health import router as health_router
@@ -62,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     api_routers = (
         monitors_router,
         agent_logs_router,
+        agent_frontend_errors_router,
         agent_errors_router,
         agent_cleanup_router,
         agent_site_summary_router,

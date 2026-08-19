@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS agent_daily_cleanup (
     retention_days INTEGER NOT NULL,
     status_code INTEGER,
     deleted_count INTEGER,
+    frontend_deleted_count INTEGER,
     duration_ms INTEGER NOT NULL,
     error_message TEXT
 );
@@ -22,9 +23,15 @@ CREATE TABLE IF NOT EXISTS agent_daily_error_count (
     success BOOLEAN NOT NULL,
     agent_error TEXT,
     error_count INTEGER,
+    frontend_error_count INTEGER,
     recorded_at TIMESTAMPTZ NOT NULL,
     UNIQUE (project_id, site_key, date)
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_daily_error_count_date
     ON agent_daily_error_count (date DESC);
+
+-- The CREATE TABLE statements above are IF NOT EXISTS, so existing deployments
+-- only pick up new columns here.
+ALTER TABLE agent_daily_cleanup ADD COLUMN IF NOT EXISTS frontend_deleted_count INTEGER;
+ALTER TABLE agent_daily_error_count ADD COLUMN IF NOT EXISTS frontend_error_count INTEGER;

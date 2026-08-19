@@ -4,6 +4,8 @@ import type {
   AccessLogStats,
   AccessLogEntries,
   SiteSummary,
+  FrontendErrorStats,
+  FrontendErrorEntries,
 } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -49,8 +51,13 @@ async function api(
   return res;
 }
 
-function siteUrl(projectId: string, siteKey: string, suffix: string): string {
-  return `/api/v1/access-logs/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/${suffix}`;
+function siteUrl(
+  base: string,
+  projectId: string,
+  siteKey: string,
+  suffix: string,
+): string {
+  return `/api/v1/${base}/sites/${encodeURIComponent(projectId)}/${encodeURIComponent(siteKey)}/${suffix}`;
 }
 
 function setOptional(
@@ -102,7 +109,10 @@ export async function fetchAccessLogStats(
       method,
     },
   );
-  const res = await api(siteUrl(projectId, siteKey, 'stats'), params);
+  const res = await api(
+    siteUrl('access-logs', projectId, siteKey, 'stats'),
+    params,
+  );
   return res.json();
 }
 
@@ -132,7 +142,10 @@ export async function fetchAccessLogEntries(
       limit: limit ? String(limit) : undefined,
     },
   );
-  const res = await api(siteUrl(projectId, siteKey, 'logs'), params);
+  const res = await api(
+    siteUrl('access-logs', projectId, siteKey, 'logs'),
+    params,
+  );
   return res.json();
 }
 
@@ -148,6 +161,74 @@ export async function fetchSiteSummary(
   projectId: string,
   siteKey: string,
 ): Promise<SiteSummary> {
-  const res = await api(siteUrl(projectId, siteKey, 'summary'));
+  const res = await api(siteUrl('access-logs', projectId, siteKey, 'summary'));
+  return res.json();
+}
+
+// Frontend errors carry more optional filters than access logs, so these take an
+// options object rather than the positional style above.
+export interface FrontendErrorFilters {
+  end?: string;
+  kind?: string;
+  os?: string;
+  clientType?: string;
+  fingerprint?: string;
+  sessionId?: string;
+  orderBy?: string;
+  orderDir?: string;
+  limit?: number;
+}
+
+function frontendErrorParams(
+  startTime: string,
+  f: FrontendErrorFilters,
+): Record<string, string> {
+  return setOptional(
+    { start_time: startTime },
+    {
+      end: f.end,
+      kind: f.kind,
+      os: f.os,
+      client_type: f.clientType,
+      fingerprint: f.fingerprint,
+      session_id: f.sessionId,
+      order_by: f.orderBy,
+      order_dir: f.orderDir,
+      limit: f.limit ? String(f.limit) : undefined,
+    },
+  );
+}
+
+export async function fetchFrontendErrorStats(
+  projectId: string,
+  siteKey: string,
+  startTime: string,
+  filters: FrontendErrorFilters = {},
+): Promise<FrontendErrorStats> {
+  const res = await api(
+    siteUrl('frontend-errors', projectId, siteKey, 'stats'),
+    frontendErrorParams(startTime, filters),
+  );
+  return res.json();
+}
+
+export async function fetchFrontendErrors(
+  projectId: string,
+  siteKey: string,
+  startTime: string,
+  filters: FrontendErrorFilters = {},
+): Promise<FrontendErrorEntries> {
+  const res = await api(
+    siteUrl('frontend-errors', projectId, siteKey, 'logs'),
+    frontendErrorParams(startTime, filters),
+  );
+  return res.json();
+}
+
+// `next` is a server-built relative path carrying its own query string.
+export async function fetchFrontendErrorPage(
+  next: string,
+): Promise<FrontendErrorEntries> {
+  const res = await api(next);
   return res.json();
 }

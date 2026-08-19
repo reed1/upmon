@@ -44,6 +44,7 @@ function formatDate(iso: string): string {
           <tr class="text-gray-500 border-b border-gray-800 text-left">
             <th class="px-3 py-2">Date</th>
             <th class="px-3 py-2 text-right">Deleted</th>
+            <th class="px-3 py-2 text-right">Frontend</th>
             <th class="px-3 py-2">Error</th>
           </tr>
         </thead>
@@ -57,6 +58,9 @@ function formatDate(iso: string): string {
               {{ formatDate(log.executed_at) }}
             </td>
             <td class="px-3 py-2 text-right">{{ log.deleted_count ?? '-' }}</td>
+            <td class="px-3 py-2 text-right text-gray-400">
+              {{ log.frontend_deleted_count ?? '-' }}
+            </td>
             <td class="px-3 py-2 max-w-xs truncate text-red-400">
               {{ log.error_message ?? '' }}
             </td>

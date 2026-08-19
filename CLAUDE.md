@@ -11,9 +11,10 @@ Uptime monitoring system. Monorepo with 4 components:
 
 - Data flow: Collector → TimescaleDB ← Backend API ← Frontend
 - Agent flow: Backend API → remote `/health/agent` endpoint → `upmon-agent` script → SQLite access logs
+- Frontend error flow: monitored app's browser → its own `/health/frontend-error` endpoint → same SQLite DB (`frontend_error` table) → read back through `upmon-agent`
 
 ## Documentation
 
-**docs/** contains integration guides for adding Upmon-compatible access logging to applications, with framework-specific examples (FastAPI, Laravel).
+**docs/** contains integration guides for adding Upmon-compatible access logging and browser error reporting to applications, with framework-specific examples (FastAPI, NestJS, Laravel).
 
 **docs/agent-debugging.md** is the runbook for pulling a site's browser requests for a given time window through the API — read it before debugging a reported production error.

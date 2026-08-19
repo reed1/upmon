@@ -3,23 +3,36 @@ import { computed } from 'vue';
 import uPlot from 'uplot';
 import UPlotChart from './UPlotChart.vue';
 
-const props = defineProps<{
-  rows: any[][];
-  spanMinutes: number;
-}>();
+// Each row is [bucket, ...one value per series]; `series` names and colors them.
+const props = withDefaults(
+  defineProps<{
+    rows: any[][];
+    spanMinutes: number;
+    title?: string;
+    series?: { label: string; stroke: string }[];
+  }>(),
+  {
+    title: 'Request Volume',
+    series: () => [
+      { label: 'OK', stroke: '#34d399' },
+      { label: 'Exception', stroke: '#f87171' },
+    ],
+  },
+);
 
 const emit = defineEmits<{
   select: [start: string, end: string];
 }>();
 
 const data = computed<uPlot.AlignedData>(() => {
-  if (!props.rows.length) return [[], [], []];
+  if (!props.rows.length) return [[], ...props.series.map(() => [])];
   const timestamps = props.rows.map(
     (r) => new Date(r[0] + 'Z').getTime() / 1000,
   );
-  const ok = props.rows.map((r) => r[1] as number);
-  const exception = props.rows.map((r) => r[2] as number);
-  return [timestamps, ok, exception];
+  return [
+    timestamps,
+    ...props.series.map((_, i) => props.rows.map((r) => r[i + 1] as number)),
+  ];
 });
 
 function onSelect(u: uPlot) {
@@ -65,20 +78,13 @@ const opts = computed<Omit<uPlot.Options, 'width'>>(() => {
     ],
     series: [
       {},
-      {
-        label: 'OK',
-        stroke: '#34d399',
+      ...props.series.map((s) => ({
+        label: s.label,
+        stroke: s.stroke,
         width: 2,
         value: (_u: uPlot, v: number | null) =>
           v == null ? '—' : v.toLocaleString(),
-      },
-      {
-        label: 'Exception',
-        stroke: '#f87171',
-        width: 2,
-        value: (_u: uPlot, v: number | null) =>
-          v == null ? '—' : v.toLocaleString(),
-      },
+      })),
     ],
     hooks: {
       setSelect: [onSelect],
@@ -89,7 +95,7 @@ const opts = computed<Omit<uPlot.Options, 'width'>>(() => {
 
 <template>
   <div v-if="data[0].length">
-    <h3 class="text-sm font-semibold text-gray-400 mb-2">Request Volume</h3>
+    <h3 class="text-sm font-semibold text-gray-400 mb-2">{{ title }}</h3>
     <div class="bg-gray-900 border border-gray-800 rounded-lg p-3">
       <UPlotChart :opts="opts" :data="data" />
     </div>

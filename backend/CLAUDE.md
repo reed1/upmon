@@ -43,6 +43,8 @@ uv run pytest        # run tests
 - API endpoint: `GET /api/v1/daily-summary?project_id=<optional>&days=<1-90>` — daily uptime aggregation from `monitor_checks`
 - API endpoint: `GET /api/v1/access-logs/sites/{project_id}/{site_key}/logs?start_time=<iso>&end=<iso>&limit=<1-1000>&start_id=<id>` — proxy access logs from remote agent. Paginated: the response carries `next`, a relative URL repeating the window/filters with `start_id` set to the last row's id (`null` on the final page). `start_time` always bounds the window, so paging never leaves the selected period.
 - API endpoint: `GET /api/v1/access-logs/sites/{project_id}/{site_key}/stats?start_time=<iso>` — proxy access log stats from remote agent
+- API endpoint: `GET /api/v1/frontend-errors/sites/{project_id}/{site_key}/logs` — proxy browser error reports from remote agent. Same pagination contract as access logs; filters are `kind`, `fingerprint`, `session_id`, `os`, `client_type`
+- API endpoint: `GET /api/v1/frontend-errors/sites/{project_id}/{site_key}/stats?start_time=<iso>` — proxy frontend error stats, including `top_errors` grouped by fingerprint
 - Serves frontend static files at `/frontend` from `FRONTEND_DIR` (defaults to `../frontend/dist`)
 - SPA fallback: unknown paths under `/frontend` serve `index.html`
 - Reads from `monitor_status` table (written by the collector service)
@@ -50,7 +52,7 @@ uv run pytest        # run tests
 
 ## Agent
 
-The backend proxies access log queries to remote agents. Config in `agents.json` (gitignored; see `agents.sample.json`). Each site has `project_id`, `site_key`, `agent_url`, and `agent_api_key`. The agent script (`scripts/upmon-agent/main.py`) is a Jinja2 template deployed via Ansible — API keys are baked in at deploy time. Multiple sites sharing a host get all their keys merged into one script.
+The backend proxies access log and frontend error queries to remote agents. Config in `agents.json` (gitignored; see `agents.sample.json`). Each site has `project_id`, `site_key`, `agent_url`, and `agent_api_key`. The agent script (`scripts/upmon-agent/main.py`) is a Jinja2 template deployed via Ansible — API keys are baked in at deploy time. Multiple sites sharing a host get all their keys merged into one script.
 
 ## Database
 

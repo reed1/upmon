@@ -14,7 +14,9 @@ def _parse_date(raw: str) -> date:
     try:
         return datetime.strptime(raw, "%Y%m%d").date()
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid date format: {raw}, expected yyyymmdd")
+        raise HTTPException(
+            status_code=400, detail=f"Invalid date format: {raw}, expected yyyymmdd"
+        )
 
 
 @router.get("")
@@ -27,27 +29,49 @@ async def get_errors(
 
     today_utc = datetime.now(timezone.utc).date()
     if parsed >= today_utc:
-        raise HTTPException(status_code=400, detail="Date must be a fully completed day (before today UTC)")
+        raise HTTPException(
+            status_code=400, detail="Date must be a fully completed day (before today UTC)"
+        )
 
     pool = request.app.state.pool
     rows = await pool.fetch(
-        """SELECT project_id, site_key, success, agent_error, error_count
+        """SELECT project_id, site_key, success, agent_error, error_count, frontend_error_count
            FROM agent_daily_error_count
            WHERE date = $1""",
         parsed,
     )
 
     total_errors = 0
+    total_frontend_errors = 0
     sites = {}
     for r in rows:
         if not user.can_access(r["project_id"]):
             continue
         key = f"{r['project_id']}/{r['site_key']}"
+        # null means the site has not adopted frontend error reporting; it stays
+        # null in the response rather than being reported as zero errors.
+        frontend_count = r["frontend_error_count"]
+        if frontend_count is not None:
+            total_frontend_errors += frontend_count
         if not r["success"]:
-            sites[key] = {"success": False, "agent_error": r["agent_error"], "error_count": None}
+            sites[key] = {
+                "success": False,
+                "agent_error": r["agent_error"],
+                "error_count": None,
+                "frontend_error_count": frontend_count,
+            }
         else:
             count = r["error_count"] or 0
             total_errors += count
-            sites[key] = {"success": True, "error_count": count}
+            sites[key] = {
+                "success": True,
+                "error_count": count,
+                "frontend_error_count": frontend_count,
+            }
 
-    return {"date": date, "total_errors": total_errors, "sites": sites}
+    return {
+        "date": date,
+        "total_errors": total_errors,
+        "total_frontend_errors": total_frontend_errors,
+        "sites": sites,
+    }

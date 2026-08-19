@@ -43,12 +43,29 @@ export interface AccessLogEntries {
   next: string | null;
 }
 
+export interface FrontendErrorStats {
+  summary: { columns: string[]; rows: any[][] };
+  kind_distribution: { columns: string[]; rows: any[][] };
+  error_class_distribution: { columns: string[]; rows: any[][] };
+  os_distribution: { columns: string[]; rows: any[][] };
+  client_type_distribution: { columns: string[]; rows: any[][] };
+  volume: { columns: string[]; rows: any[][] };
+  top_errors: { columns: string[]; rows: any[][] };
+}
+
+export interface FrontendErrorEntries {
+  columns: string[];
+  rows: any[][];
+  next: string | null;
+}
+
 export interface CleanupLogEntry {
   id: number;
   executed_at: string;
   retention_days: number;
   status_code: number | null;
   deleted_count: number | null;
+  frontend_deleted_count: number | null;
   duration_ms: number;
   error_message: string | null;
 }
@@ -56,6 +73,7 @@ export interface CleanupLogEntry {
 export interface DailyErrorCount {
   date: string;
   error_count: number | null;
+  frontend_error_count: number | null;
   agent_error: string | null;
 }
 
