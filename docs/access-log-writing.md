@@ -58,7 +58,9 @@ Before logging, redact sensitive fields from the request body. Check your app's 
 Do **not** log when any of these are true:
 
 - `OPTIONS` requests (CORS preflight)
-- Path starts with `/health` (infrastructure noise from upmon polling)
+- Path starts with `/health` (infrastructure noise from upmon polling, plus browser error reports
+  posted to `/health/frontend-error`). Implementations that match exact paths rather than the prefix
+  must list `/health/frontend-error` explicitly.
 - Status code is `404` **and** `user_id` is null (spam/scanner traffic)
 
 ### Exception logging
@@ -85,6 +87,12 @@ headers: {
 ```
 
 Skip this step if the application does not have native mobile app.
+
+## Frontend Errors
+
+Server-side logging cannot see a browser bundle that throws after a 200 response. See
+[frontend-error-writing.md](frontend-error-writing.md) for the companion `frontend_error` table,
+which lives in this same SQLite database.
 
 ## Framework Examples
 
