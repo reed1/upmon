@@ -41,4 +41,4 @@ git commit -m "health route implementation"
 
 ---
 
-Next: step 2 (access log SQLite database).
+Next: [step 2 — access log](step-2-access-log.md).
